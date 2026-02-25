@@ -1,0 +1,45 @@
+{
+  "name": "opendb-studio",
+  "productName": "OpenDB Studio",
+  "version": "1.0.0",
+  "description": "Open Source Database Management Desktop App with Docker Integration",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "dockerode": "^4.0.2",
+    "sql.js": "^1.10.3",
+    "pg": "^8.11.3",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "electron": "^28.1.0",
+    "electron-vite": "^2.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@xterm/xterm": "^5.5.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "zustand": "^4.5.2",
+    "immer": "^10.0.4",
+    "clsx": "^2.1.1",
+    "tailwindcss": "^3.4.4",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "typescript": "^5.5.3",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/node": "^20.10.6",
+    "@types/dockerode": "^3.3.23",
+    "@types/pg": "^8.10.9",
+    "@types/uuid": "^9.0.7"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+
+# Old folders (safe to delete when no process locks them)
+frontend/
+backend/
+
+# Environment
+.env
+
+# Data
+data/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

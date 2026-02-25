@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+::-webkit-scrollbar-thumb {
+  background: #424242;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4f4f4f;
+}
+::-webkit-scrollbar-corner {
+  background: #1e1e1e;
+}
+
+/* ── Hide scrollbar utility ── */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ── Selection ── */
+::selection {
+  background: #264f78;
+  color: white;
+}
+
+/* ── SQL Syntax Highlighting ── */
+.syntax-keyword { color: #569cd6; font-weight: bold; }
+.syntax-function { color: #dcdcaa; }
+.syntax-string { color: #ce9178; }
+.syntax-number { color: #b5cea8; }
+.syntax-comment { color: #6a9955; font-style: italic; }
+.syntax-operator { color: #d4d4d4; }
+.syntax-type { color: #4ec9b0; }
+
+/* SQL editor overlay highlighting */
+.sql-keyword { color: #569cd6; font-weight: 600; }
+.sql-function { color: #dcdcaa; }
+.sql-string { color: #ce9178; }
+.sql-number { color: #b5cea8; }
+.sql-comment { color: #6a9955; font-style: italic; }
+.sql-operator { color: #d4d4d4; }
+.sql-type { color: #4ec9b0; }
+
+/* ── Animations ── */
+.pulse-dot {
+  box-shadow: 0 0 0 0 rgba(78, 201, 176, 0.7);
+  animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(78, 201, 176, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(78, 201, 176, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(78, 201, 176, 0);
+  }
+}
+
+.xterm-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background-color: #a7a7a7;
+  animation: blink 1s step-end infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
