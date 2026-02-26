@@ -56,8 +56,8 @@ function AddConnectionForm({ onClose }: { onClose: () => void }) {
 
       addConnection(conn);
       await connectToDatabase(conn, password);
-      // Persist to storage
-      await window.electronAPI.database.saveConnection(conn);
+      // Persist to storage (include password for auto-reconnect)
+      await window.electronAPI.database.saveConnection({ ...conn, password });
       setTesting(false);
       onClose();
     } catch (err: unknown) {
@@ -118,11 +118,16 @@ export function Connections() {
 
   const handleReconnect = async (conn: Connection) => {
     if (conn.isConnected) return;
-    // For reconnect we need a password — prompt via simple approach
-    const pw = prompt(`Enter password for ${conn.name}:`);
-    if (pw === null) return;
+    // Try saved password first, otherwise prompt
+    let pw = conn.password ?? null;
+    if (!pw) {
+      pw = prompt(`Enter password for ${conn.name}:`);
+      if (pw === null) return;
+    }
     try {
       await connectToDatabase(conn, pw);
+      // Save password for future auto-reconnect
+      await window.electronAPI.database.saveConnection({ ...conn, password: pw });
     } catch {
       alert(`Failed to connect to ${conn.name}`);
     }

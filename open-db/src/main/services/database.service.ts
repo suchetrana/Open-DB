@@ -29,18 +29,51 @@ export interface ColumnInfo {
   isPrimaryKey: boolean
 }
 
+interface ConnectionConfig {
+  host: string
+  port: number
+  user: string
+  password: string
+  database: string
+}
+
 class DatabaseService {
   private pools = new Map<string, Pool>()
+  private configs = new Map<string, ConnectionConfig>()
 
   async connect(id: string, host: string, port: number, user: string, password: string, database: string): Promise<void> {
-    if (this.pools.has(id)) return
+    if (this.pools.has(id)) {
+      await this.disconnect(id)
+    }
 
     const pool = new Pool({ host, port, user, password, database, max: 10, connectionTimeoutMillis: 5000 })
     const client = await pool.connect()
     await client.query('SELECT 1')
     client.release()
     this.pools.set(id, pool)
+    this.configs.set(id, { host, port, user, password, database })
     console.log(`[DB] Connected ${id} → ${host}:${port}/${database}`)
+  }
+
+  /** Switch to a different database on the same server (Beekeeper-style) */
+  async switchDatabase(connectionId: string, newDatabase: string): Promise<void> {
+    const cfg = this.configs.get(connectionId)
+    if (!cfg) throw new Error(`No config for ${connectionId}`)
+
+    // Save config before disconnect (disconnect clears it)
+    const { host, port, user, password } = cfg
+
+    // Disconnect existing pool (only end pool, keep config intent)
+    const pool = this.pools.get(connectionId)
+    if (pool) {
+      await pool.end()
+      this.pools.delete(connectionId)
+    }
+    this.configs.delete(connectionId)
+
+    // Reconnect with new database
+    await this.connect(connectionId, host, port, user, password, newDatabase)
+    console.log(`[DB] Switched ${connectionId} → ${newDatabase}`)
   }
 
   async executeQuery(connectionId: string, sql: string): Promise<QueryResult> {
@@ -65,6 +98,7 @@ class DatabaseService {
       await pool.end()
       this.pools.delete(id)
     }
+    this.configs.delete(id)
   }
 
   async testConnection(host: string, port: number, user: string, password: string, database: string): Promise<boolean> {
@@ -112,8 +146,8 @@ class DatabaseService {
          CASE WHEN t.table_type = 'VIEW' THEN 'view' ELSE 'table' END as type,
          COALESCE(c.reltuples, 0)::bigint as "rowEstimate"
        FROM information_schema.tables t
-       LEFT JOIN pg_class c ON c.relname = t.table_name
-       LEFT JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = t.table_schema
+       LEFT JOIN pg_namespace n ON n.nspname = t.table_schema
+       LEFT JOIN pg_class c ON c.relname = t.table_name AND c.relnamespace = n.oid
        WHERE t.table_schema = $1
        ORDER BY t.table_type, t.table_name`,
       [schema]

@@ -44,6 +44,7 @@ export function registerDatabaseHandlers(): void {
       host: c.host,
       port: c.port,
       username: c.username,
+      password: c.password,
       database: c.database_name,
       isConnected: false,
       dockerContainerId: c.docker_container_id
@@ -59,7 +60,7 @@ export function registerDatabaseHandlers(): void {
       host: connection.host as string,
       port: connection.port as number,
       username: (connection.username as string) ?? null,
-      password: null,
+      password: (connection.password as string) ?? null,
       database_name: (connection.database as string) ?? null,
       docker_container_id: (connection.dockerContainerId as string) ?? null,
       created_at: new Date().toISOString()
@@ -80,6 +81,11 @@ export function registerDatabaseHandlers(): void {
 
   ipcMain.handle('db:get-databases', async (_e, connectionId: string) => {
     return databaseService.getDatabases(connectionId)
+  })
+
+  ipcMain.handle('db:switch-database', async (_e, connectionId: string, newDatabase: string) => {
+    await databaseService.switchDatabase(connectionId, newDatabase)
+    return { ok: true }
   })
 
   ipcMain.handle('db:get-schemas', async (_e, connectionId: string) => {

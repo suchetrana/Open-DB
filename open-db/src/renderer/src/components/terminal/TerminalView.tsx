@@ -1,17 +1,16 @@
 /**
  * TerminalView – real xterm.js terminal connected to main process
  *
- * Architecture inspired by VS Code's TerminalInstance:
- *   - xterm.js renders in the browser
- *   - FitAddon handles auto-resize
- *   - Keystrokes → IPC → main process (child_process or docker exec)
- *   - Main stdout → IPC → xterm.write()
+ * Supports two modes:
+ *   1. Local shell – OS terminal (powershell / bash)
+ *   2. Docker exec – connects to a Docker container (psql, mysql, mongosh, redis-cli)
  */
 import { useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
+import type { TerminalSessionInfo } from '@/types'
 
 /** VS Code Dark+ inspired theme */
 const DARK_THEME = {
@@ -40,11 +39,14 @@ const DARK_THEME = {
   brightWhite: '#e5e5e5'
 }
 
-export function TerminalView() {
+interface TerminalViewProps {
+  session: TerminalSessionInfo
+}
+
+export function TerminalView({ session }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
-  const idRef = useRef<string | null>(null)
   const cleanupRef = useRef<(() => void)[]>([])
 
   useEffect(() => {
@@ -77,10 +79,22 @@ export function TerminalView() {
     termRef.current = term
     fitRef.current = fitAddon
 
-    // 2. Create terminal session in main process
-    const termId = `term-${Date.now()}`
-    idRef.current = termId
-    window.electronAPI.terminal.create({ id: termId, type: 'local' })
+    const termId = session.id
+
+    // 2. Create terminal session in main process based on type
+    if (session.type === 'docker' && session.containerId) {
+      // Docker exec terminal — connects directly to container
+      term.write(`\x1b[90mConnecting to ${session.name}...\x1b[0m\r\n`)
+      window.electronAPI.terminal.create({
+        id: termId,
+        type: 'docker',
+        containerId: session.containerId,
+        cmd: session.cmd,
+      })
+    } else {
+      // Local OS shell
+      window.electronAPI.terminal.create({ id: termId, type: 'local' })
+    }
 
     // 3. Keystroke → main process
     const dataDisp = term.onData((data) => {
@@ -121,7 +135,7 @@ export function TerminalView() {
       window.electronAPI.terminal.close(termId)
       term.dispose()
     }
-  }, [])
+  }, [session.id])
 
   return <div ref={containerRef} className="h-full w-full" />
 }

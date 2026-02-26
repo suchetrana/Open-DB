@@ -110,7 +110,7 @@ function TableItem({ connId, table }: { connId: string; table: TableNode }) {
 }
 
 // ── Schema item (expandable → tables + views) ──
-function SchemaItem({ connId, schema }: { connId: string; schema: string }) {
+function SchemaItem({ connId, schema, dbName }: { connId: string; schema: string; dbName: string }) {
   const [open, setOpen] = useState(schema === "public");
   const [tables, setTables] = useState<TableNode[]>([]);
   const [loading, setLoading] = useState(false);
@@ -137,7 +137,8 @@ function SchemaItem({ connId, schema }: { connId: string; schema: string }) {
       setLoading(true);
       window.electronAPI.database.getTables(connId, schema).then(setTables).catch(console.error).finally(() => setLoading(false));
     }
-  }, [connId, schema, tables.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connId, schema, dbName]);
 
   const tableList = tables.filter((t) => t.type === "table");
   const viewList = tables.filter((t) => t.type === "view");
@@ -193,34 +194,154 @@ function SchemaItem({ connId, schema }: { connId: string; schema: string }) {
   );
 }
 
+// ── Database item (shows schemas for a single database) ──
+function DatabaseItem({
+  connId,
+  dbName,
+  isSelected,
+  onSwitch,
+}: {
+  connId: string;
+  dbName: string;
+  isSelected: boolean;
+  onSwitch: (db: string) => void;
+}) {
+  const [open, setOpen] = useState(isSelected);
+  const [schemas, setSchemas] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  // When this database becomes selected, load its schemas
+  useEffect(() => {
+    if (isSelected && !loaded) {
+      setLoading(true);
+      setOpen(true);
+      window.electronAPI.database
+        .getSchemas(connId)
+        .then((sch) => {
+          setSchemas(sch.map((s) => s.name));
+          setLoaded(true);
+        })
+        .catch(() => {
+          setSchemas([]);
+          setLoaded(true);
+        })
+        .finally(() => setLoading(false));
+    }
+    // When deselected, clear loaded state so it refreshes when re-selected
+    if (!isSelected) {
+      setLoaded(false);
+      setSchemas([]);
+      setOpen(false);
+    }
+  }, [isSelected, connId, loaded]);
+
+  const handleClick = () => {
+    if (!isSelected) {
+      onSwitch(dbName);
+    } else {
+      setOpen(!open);
+    }
+  };
+
+  return (
+    <div>
+      <div
+        className={clsx(
+          "flex items-center gap-1.5 pl-4 pr-2 py-[2px] cursor-pointer select-none group/db",
+          isSelected
+            ? "hover:bg-bg-surface-hover"
+            : "hover:bg-bg-surface-hover opacity-75 hover:opacity-100"
+        )}
+        onClick={handleClick}
+      >
+        <Icon
+          name="chevron_right"
+          size={12}
+          className={clsx(
+            "transition-transform text-text-muted",
+            open && isSelected && "rotate-90"
+          )}
+        />
+        <Icon
+          name="storage"
+          size={13}
+          className={isSelected ? "text-accent-blue" : "text-text-muted"}
+        />
+        <span
+          className={clsx(
+            "text-[11px] truncate flex-1",
+            isSelected ? "text-text-primary font-semibold" : "text-text-secondary"
+          )}
+        >
+          {dbName}
+        </span>
+        {isSelected && (
+          <span className="text-[9px] text-accent-blue font-bold uppercase">Active</span>
+        )}
+        {!isSelected && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSwitch(dbName);
+            }}
+            className="opacity-0 group-hover/db:opacity-100 text-[10px] text-text-secondary hover:text-accent-blue"
+            title={`Switch to ${dbName}`}
+          >
+            connect
+          </button>
+        )}
+      </div>
+      {open && isSelected && (
+        <div>
+          {loading && (
+            <div className="pl-8 text-[10px] text-text-muted py-1">Loading schemas…</div>
+          )}
+          {schemas.length > 0
+            ? schemas.map((s) => (
+                <SchemaItem key={`${dbName}-${s}`} connId={connId} schema={s} dbName={dbName} />
+              ))
+            : !loading && (
+                <div className="pl-8 text-[10px] text-text-muted py-1">No schemas</div>
+              )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main export ──
 export function DatabaseExplorer() {
   const activeConnectionId = useAppStore((s) => s.activeConnectionId);
   const connections = useAppStore((s) => s.connections);
+  const selectedDatabase = useAppStore((s) => s.selectedDatabase);
+  const availableDatabases = useAppStore((s) => s.availableDatabases);
+  const switchDatabase = useAppStore((s) => s.switchDatabase);
+  const fetchDatabases = useAppStore((s) => s.fetchDatabases);
   const activeConn = connections.find((c) => c.id === activeConnectionId);
 
-  const [databases, setDatabases] = useState<string[]>([]);
-  const [schemas, setSchemas] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [switching, setSwitching] = useState(false);
 
-  // Fetch schemas when connection changes
+  // Fetch databases when connection changes
   useEffect(() => {
-    if (!activeConnectionId || !activeConn?.isConnected) {
-      setSchemas([]);
-      setDatabases([]);
-      return;
+    if (activeConnectionId && activeConn?.isConnected) {
+      fetchDatabases();
     }
+  }, [activeConnectionId, activeConn?.isConnected, fetchDatabases]);
 
-    setLoading(true);
-    Promise.all([
-      window.electronAPI.database.getDatabases(activeConnectionId).catch(() => [] as string[]),
-      window.electronAPI.database.getSchemas(activeConnectionId).catch(() => [] as { name: string }[]),
-    ]).then(([dbs, sch]) => {
-      setDatabases(dbs);
-      setSchemas(sch.map((s) => s.name));
-      setLoading(false);
-    });
-  }, [activeConnectionId, activeConn?.isConnected]);
+  const handleSwitchDb = async (dbName: string) => {
+    if (switching || dbName === selectedDatabase) return;
+    setSwitching(true);
+    try {
+      await switchDatabase(dbName);
+      // Re-fetch databases list (still the same, but ensures consistency)
+      await fetchDatabases();
+    } catch (err) {
+      console.error("Failed to switch database", err);
+    } finally {
+      setSwitching(false);
+    }
+  };
 
   return (
     <details className="group mt-0.5" open>
@@ -231,45 +352,57 @@ export function DatabaseExplorer() {
           className="transition-transform group-open:rotate-90 text-text-primary"
         />
         <span className="text-[11px] font-bold uppercase ml-0.5">
-          Database
+          Databases
         </span>
         {activeConn && (
-          <span className="ml-auto mr-2 text-[10px] text-status-green font-mono">
-            {activeConn.database ?? "postgres"}
-          </span>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              fetchDatabases();
+            }}
+            className="ml-auto mr-2 text-text-secondary hover:text-text-primary"
+            title="Refresh databases"
+          >
+            <Icon name="refresh" size={14} />
+          </button>
         )}
       </summary>
 
       <div className="flex flex-col pb-1 font-mono">
         {!activeConn?.isConnected && (
           <div className="text-text-muted text-[11px] py-2 pl-6">
-            Connect to a database to browse schema.
+            Connect to a database to browse.
           </div>
         )}
 
-        {loading && (
-          <div className="text-text-muted text-[10px] py-2 pl-6">Loading schema…</div>
+        {switching && (
+          <div className="text-text-muted text-[10px] py-1 pl-6">Switching database…</div>
         )}
 
-        {activeConn?.isConnected && !loading && (
+        {activeConn?.isConnected && availableDatabases.length > 0 && (
           <>
-            {/* Databases count */}
-            {databases.length > 0 && (
-              <div className="flex items-center gap-1.5 pl-4 pr-2 py-[2px] text-[11px] text-text-secondary select-none">
-                <Icon name="storage" size={13} className="text-syntax-function" />
-                <span>Databases: {databases.length}</span>
-              </div>
-            )}
-
-            {/* Schemas */}
-            {schemas.length > 0 ? (
-              schemas.map((s) => (
-                <SchemaItem key={s} connId={activeConnectionId!} schema={s} />
-              ))
-            ) : (
-              <div className="text-text-muted text-[10px] py-1 pl-6">No schemas found</div>
-            )}
+            {availableDatabases.map((db) => (
+              <DatabaseItem
+                key={db}
+                connId={activeConnectionId!}
+                dbName={db}
+                isSelected={db === selectedDatabase}
+                onSwitch={handleSwitchDb}
+              />
+            ))}
           </>
+        )}
+
+        {activeConn?.isConnected && availableDatabases.length === 0 && !switching && (
+          <div className="text-text-muted text-[10px] py-1 pl-6">
+            No databases found.{" "}
+            <button
+              onClick={() => fetchDatabases()}
+              className="text-accent-blue hover:underline"
+            >
+              Retry
+            </button>
+          </div>
         )}
       </div>
     </details>

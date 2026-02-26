@@ -73,12 +73,16 @@ class DockerService {
     }
   }
 
-  /** List all opendb-* containers */
+  /** List all database containers (postgres, mysql, mongo, redis) */
   async listContainers(): Promise<ContainerInfo[]> {
     if (!this._available) return []
     const all = await this.docker.listContainers({ all: true })
+    const dbImages = ['postgres', 'mysql', 'mariadb', 'mongo', 'redis', 'cassandra', 'cockroach', 'timescale', 'supabase']
     return all
-      .filter((c) => c.Names.some((n) => n.startsWith('/opendb-')))
+      .filter((c) => {
+        const img = c.Image.toLowerCase()
+        return dbImages.some((db) => img.includes(db)) || c.Names.some((n) => n.startsWith('/opendb-'))
+      })
       .map((c) => ({
         id: c.Id.slice(0, 12),
         name: c.Names[0].replace('/', ''),

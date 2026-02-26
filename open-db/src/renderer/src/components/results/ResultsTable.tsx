@@ -47,9 +47,17 @@ function CellValue({ col, value }: { col: ColumnDef; value: string | number | nu
 }
 
 export function ResultsTable({ columns, rows }: ResultsTableProps) {
+  if (rows.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-text-muted text-xs font-mono">
+        No rows returned
+      </div>
+    );
+  }
+
   return (
-    <div className="overflow-auto flex-1 font-mono text-[11px] bg-bg-elevated">
-      <table className="w-full text-left border-collapse table-fixed">
+    <div className="overflow-auto flex-1 font-mono text-[11px] bg-bg-elevated min-h-0">
+      <table className="w-full text-left border-collapse">
         {/* Header */}
         <thead className="bg-bg-surface text-text-primary sticky top-0 z-10 shadow-sm">
           <tr>

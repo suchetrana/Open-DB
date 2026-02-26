@@ -24,6 +24,7 @@ export interface Connection {
   host: string;
   port: number;
   username?: string;
+  password?: string;
   database?: string;
   isConnected: boolean;
   dockerContainerId?: string;
@@ -96,6 +97,15 @@ export interface TerminalLine {
 
 // ── Sidebar ──
 export type SidebarView = "explorer" | "search" | "schema" | "runner" | "extensions";
+
+// ── Terminal Sessions ──
+export interface TerminalSessionInfo {
+  id: string;
+  name: string;
+  type: 'local' | 'docker';
+  containerId?: string;
+  cmd?: string[];
+}
 
 // ── Bottom Panel ──
 export type BottomPanelTab = "problems" | "output" | "terminal" | "debug";

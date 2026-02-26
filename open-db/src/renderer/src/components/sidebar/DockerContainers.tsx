@@ -2,7 +2,25 @@ import React, { useState } from "react";
 import { Icon } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 import { clsx } from "clsx";
-import type { ContainerStatus, DatabaseType } from "@/types";
+import type { ContainerStatus, DatabaseType, Connection } from "@/types";
+
+function genId(): string {
+  return "conn-" + Math.random().toString(36).slice(2, 10);
+}
+
+const DB_DEFAULT_USERS: Record<string, string> = {
+  postgres: "postgres",
+  mysql: "root",
+  mongodb: "admin",
+  redis: "",
+};
+
+const DB_DEFAULT_DBS: Record<string, string> = {
+  postgres: "postgres",
+  mysql: "mysql",
+  mongodb: "admin",
+  redis: "",
+};
 
 function StatusDot({ status }: { status: ContainerStatus }) {
   if (status === "running") {
@@ -39,6 +57,7 @@ function CreateContainerForm({ onClose }: { onClose: () => void }) {
   const portDefaults: Record<DatabaseType, string> = {
     postgres: "5432",
     mysql: "3306",
+    cassandra: "9042",
     mongodb: "27017",
     redis: "6379",
   };
@@ -54,7 +73,7 @@ function CreateContainerForm({ onClose }: { onClose: () => void }) {
     setCreating(true);
     setError("");
     try {
-      await createDockerContainer(name.trim() || `opendb-${dbType}`, dbType, parseInt(port, 10), password);
+      await createDockerContainer({ name: name.trim() || `opendb-${dbType}`, type: dbType, port: parseInt(port, 10), password });
       onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
@@ -111,6 +130,8 @@ export function DockerContainers() {
   const startContainer = useAppStore((s) => s.startContainer);
   const stopContainer = useAppStore((s) => s.stopContainer);
   const removeContainer = useAppStore((s) => s.removeContainer);
+  const addConnection = useAppStore((s) => s.addConnection);
+  const connectToDatabase = useAppStore((s) => s.connectToDatabase);
   const [showCreate, setShowCreate] = useState(false);
 
   // Fetch real containers on mount
@@ -123,6 +144,36 @@ export function DockerContainers() {
     }, 5000);
     return () => clearInterval(id);
   }, [fetchContainers, fetchDockerStatus]);
+
+  const handleConnectToContainer = async (c: { id: string; name: string; port: number; type: string }) => {
+    const dbType = c.type as DatabaseType;
+    const user = DB_DEFAULT_USERS[dbType] ?? "postgres";
+    const db = DB_DEFAULT_DBS[dbType] ?? "postgres";
+
+    const pw = prompt(`Enter password for ${c.name} (${dbType}):\n\nDefault for Docker: postgres, localdev, or root`, "postgres");
+    if (pw === null) return;
+
+    const conn: Connection = {
+      id: genId(),
+      name: c.name,
+      type: dbType,
+      host: "localhost",
+      port: c.port,
+      username: user,
+      database: db,
+      isConnected: false,
+      dockerContainerId: c.id,
+    };
+
+    try {
+      addConnection(conn);
+      await connectToDatabase(conn, pw);
+      // Save with password for auto-reconnect
+      await window.electronAPI.database.saveConnection({ ...conn, password: pw });
+    } catch {
+      alert(`Failed to connect to ${c.name}. Check password and that the container is ready.`);
+    }
+  };
 
   return (
     <details className="group mt-0.5" open>
@@ -173,30 +224,33 @@ export function DockerContainers() {
             <StatusDot status={c.status} />
             <span
               className={clsx(
-                "truncate text-xs",
+                "truncate text-xs flex-1",
                 statusTextColor(c.status),
                 c.status === "stopped" && "line-through decoration-[#555]"
               )}
             >
               {c.name}
             </span>
+            {c.port > 0 && (
+              <span className="text-[9px] text-text-muted font-mono">:{c.port}</span>
+            )}
             <span className="ml-auto opacity-0 group-hover/item:opacity-100 flex gap-1">
               {c.status === "stopped" ? (
                 <>
-                  <button onClick={(e) => { e.stopPropagation(); startContainer(c.id); }}>
+                  <button onClick={(e) => { e.stopPropagation(); startContainer(c.id); }} title="Start">
                     <Icon name="play_arrow" size={14} className="text-text-secondary hover:text-status-green" />
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); removeContainer(c.id); }}>
+                  <button onClick={(e) => { e.stopPropagation(); removeContainer(c.id); }} title="Remove">
                     <Icon name="delete" size={14} className="text-text-secondary hover:text-status-red" />
                   </button>
                 </>
               ) : c.status === "running" ? (
                 <>
-                  <button onClick={(e) => { e.stopPropagation(); stopContainer(c.id); }}>
-                    <Icon name="stop" size={14} className="text-text-secondary hover:text-status-red" />
+                  <button onClick={(e) => { e.stopPropagation(); handleConnectToContainer(c); }} title="Connect to database">
+                    <Icon name="database" size={14} className="text-text-secondary hover:text-status-green" />
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); /* TODO: open docker terminal */ }}>
-                    <Icon name="terminal" size={14} className="text-text-secondary hover:text-white" />
+                  <button onClick={(e) => { e.stopPropagation(); stopContainer(c.id); }} title="Stop">
+                    <Icon name="stop" size={14} className="text-text-secondary hover:text-status-red" />
                   </button>
                 </>
               ) : null}

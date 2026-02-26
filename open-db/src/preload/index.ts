@@ -118,6 +118,9 @@ export const electronAPI = {
     getDatabases: (connectionId: string): Promise<string[]> =>
       ipcRenderer.invoke('db:get-databases', connectionId),
 
+    switchDatabase: (connectionId: string, newDatabase: string): Promise<{ ok: boolean }> =>
+      ipcRenderer.invoke('db:switch-database', connectionId, newDatabase),
+
     getSchemas: (connectionId: string): Promise<{ name: string }[]> =>
       ipcRenderer.invoke('db:get-schemas', connectionId),
 

@@ -63,6 +63,7 @@ interface DatabaseAPI {
   deleteConnection(id: string): Promise<{ ok: boolean }>
   getQueryHistory(connectionId: string, limit?: number): Promise<unknown[]>
   getDatabases(connectionId: string): Promise<string[]>
+  switchDatabase(connectionId: string, newDatabase: string): Promise<{ ok: boolean }>
   getSchemas(connectionId: string): Promise<{ name: string }[]>
   getTables(connectionId: string, schema: string): Promise<{ schema: string; name: string; type: 'table' | 'view'; rowEstimate: number }[]>
   getColumns(connectionId: string, schema: string, table: string): Promise<{ name: string; dataType: string; nullable: boolean; defaultValue: string | null; isPrimaryKey: boolean }[]>

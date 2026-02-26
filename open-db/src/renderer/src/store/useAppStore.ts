@@ -9,6 +9,7 @@ import type {
   QueryResult,
   ColumnDef,
   RawQueryResult,
+  TerminalSessionInfo,
 } from '@/types'
 
 /** Map a raw column name to a ColumnDef with sensible icon defaults */
@@ -83,6 +84,17 @@ interface AppState {
   activeBottomTab: BottomPanelTab
   bottomPanelOpen: boolean
 
+  // Results Panel
+  resultsPanelMode: 'normal' | 'minimized' | 'maximized'
+
+  // Database Selection
+  availableDatabases: string[]
+  selectedDatabase: string | null
+
+  // Terminal Sessions
+  terminalSessions: TerminalSessionInfo[]
+  activeTerminalSessionId: string | null
+
   // ── UI Actions ──
   setSidebarView: (view: SidebarView) => void
   toggleSidebar: () => void
@@ -93,6 +105,7 @@ interface AppState {
   updateTabContent: (tabId: string, content: string) => void
   openTableTab: (schema: string, table: string) => void
   addNewFileTab: (title: string, content?: string) => void
+  setResultsPanelMode: (mode: 'normal' | 'minimized' | 'maximized') => void
 
   // ── Database Actions ──
   loadConnections: () => Promise<void>
@@ -101,6 +114,14 @@ interface AppState {
   addConnection: (conn: Connection) => void
   deleteConnection: (connId: string) => Promise<void>
   executeQuery: () => Promise<void>
+  fetchDatabases: () => Promise<void>
+  switchDatabase: (dbName: string) => Promise<void>
+
+  // ── Terminal Actions ──
+  openLocalTerminal: () => void
+  openDockerTerminal: (containerId: string, containerName: string, dbType: string) => void
+  closeTerminalSession: (sessionId: string) => void
+  setActiveTerminalSession: (sessionId: string) => void
 
   // ── Docker Actions ──
   fetchDockerStatus: () => Promise<void>
@@ -132,6 +153,14 @@ export const useAppStore = create<AppState>()(
 
     activeBottomTab: 'terminal',
     bottomPanelOpen: true,
+
+    resultsPanelMode: 'normal',
+
+    availableDatabases: [],
+    selectedDatabase: null,
+
+    terminalSessions: [],
+    activeTerminalSessionId: null,
 
     // ── UI Actions ──
     setSidebarView: (view) =>
@@ -233,14 +262,66 @@ export const useAppStore = create<AppState>()(
         s.activeTabId = id
       }),
 
+    setResultsPanelMode: (mode: 'normal' | 'minimized' | 'maximized') =>
+      set((s) => {
+        s.resultsPanelMode = mode
+      }),
+
     // ── Database Actions ──
 
     loadConnections: async () => {
       try {
         const raw = await window.electronAPI.database.getConnections()
+        const connections = raw as Connection[]
         set((s) => {
-          s.connections = raw as Connection[]
+          s.connections = connections
         })
+        // Auto-reconnect connections that have saved passwords
+        for (const conn of connections) {
+          if (conn.password) {
+            try {
+              const state = useAppStore.getState()
+              // Skip if already connected
+              const existing = state.connections.find((c: Connection) => c.id === conn.id)
+              if (existing?.isConnected) continue
+
+              const dbName = conn.database ?? 'postgres'
+              await window.electronAPI.database.connect(
+                conn.id,
+                conn.host,
+                conn.port,
+                conn.username ?? 'postgres',
+                conn.password,
+                dbName
+              )
+              set((s) => {
+                const c = s.connections.find((x: Connection) => x.id === conn.id)
+                if (c) c.isConnected = true
+                // Set the first reconnected connection as active
+                if (!s.activeConnectionId) {
+                  s.activeConnectionId = conn.id
+                  s.selectedDatabase = dbName
+                }
+              })
+              // Auto-fetch databases for the active connection
+              const updatedState = useAppStore.getState()
+              if (updatedState.activeConnectionId === conn.id) {
+                try {
+                  const dbs = await window.electronAPI.database.getDatabases(conn.id)
+                  set((s) => {
+                    s.availableDatabases = dbs
+                  })
+                } catch {
+                  // non-critical
+                }
+              }
+              console.log(`[Auto-reconnect] Connected to ${conn.name}`)
+            } catch (err) {
+              console.warn(`[Auto-reconnect] Failed for ${conn.name}:`, err)
+              // Connection failed — leave as disconnected, user can manually reconnect
+            }
+          }
+        }
       } catch (err) {
         console.error('Failed to load connections', err)
       }
@@ -248,19 +329,33 @@ export const useAppStore = create<AppState>()(
 
     connectToDatabase: async (conn: Connection, password: string) => {
       try {
+        const dbName = conn.database ?? 'postgres'
         await window.electronAPI.database.connect(
           conn.id,
           conn.host,
           conn.port,
           conn.username ?? 'postgres',
           password,
-          conn.database ?? 'postgres'
+          dbName
         )
         set((s) => {
           const c = s.connections.find((x: Connection) => x.id === conn.id)
-          if (c) c.isConnected = true
+          if (c) {
+            c.isConnected = true
+            c.password = password // Keep password in state for save
+          }
           s.activeConnectionId = conn.id
+          s.selectedDatabase = dbName
         })
+        // Auto-fetch available databases after connecting (Beekeeper-style)
+        try {
+          const dbs = await window.electronAPI.database.getDatabases(conn.id)
+          set((s) => {
+            s.availableDatabases = dbs
+          })
+        } catch {
+          // non-critical
+        }
       } catch (err) {
         console.error('Failed to connect', err)
         throw err
@@ -273,7 +368,11 @@ export const useAppStore = create<AppState>()(
         set((s) => {
           const c = s.connections.find((x: Connection) => x.id === connId)
           if (c) c.isConnected = false
-          if (s.activeConnectionId === connId) s.activeConnectionId = null
+          if (s.activeConnectionId === connId) {
+            s.activeConnectionId = null
+            s.availableDatabases = []
+            s.selectedDatabase = null
+          }
         })
       } catch (err) {
         console.error('Failed to disconnect', err)
@@ -357,6 +456,95 @@ export const useAppStore = create<AppState>()(
         })
       }
     },
+
+    fetchDatabases: async () => {
+      const { activeConnectionId } = useAppStore.getState()
+      if (!activeConnectionId) return
+      try {
+        const dbs = await window.electronAPI.database.getDatabases(activeConnectionId)
+        set((s) => {
+          s.availableDatabases = dbs
+        })
+      } catch (err) {
+        console.error('Failed to fetch databases', err)
+      }
+    },
+
+    switchDatabase: async (dbName: string) => {
+      const { activeConnectionId } = useAppStore.getState()
+      if (!activeConnectionId) return
+      try {
+        await window.electronAPI.database.switchDatabase(activeConnectionId, dbName)
+        set((s) => {
+          s.selectedDatabase = dbName
+          // Update the connection's database field
+          const c = s.connections.find((x: Connection) => x.id === activeConnectionId)
+          if (c) c.database = dbName
+        })
+      } catch (err) {
+        console.error('Failed to switch database', err)
+        throw err
+      }
+    },
+
+    // ── Terminal Session Actions ──
+
+    openLocalTerminal: () =>
+      set((s) => {
+        const id = 'term-' + Date.now()
+        const session: TerminalSessionInfo = {
+          id,
+          name: 'Terminal',
+          type: 'local',
+        }
+        s.terminalSessions.push(session)
+        s.activeTerminalSessionId = id
+        s.activeBottomTab = 'terminal'
+        s.bottomPanelOpen = true
+      }),
+
+    openDockerTerminal: (containerId: string, containerName: string, dbType: string) =>
+      set((s) => {
+        const id = 'term-' + Date.now()
+        const cmdMap: Record<string, string[]> = {
+          postgres: ['psql', '-U', 'postgres'],
+          mysql: ['mysql', '-u', 'root'],
+          mongodb: ['mongosh'],
+          redis: ['redis-cli'],
+        }
+        const cmd = cmdMap[dbType] ?? ['/bin/sh']
+        const session: TerminalSessionInfo = {
+          id,
+          name: `${containerName} (${dbType})`,
+          type: 'docker',
+          containerId,
+          cmd,
+        }
+        s.terminalSessions.push(session)
+        s.activeTerminalSessionId = id
+        s.activeBottomTab = 'terminal'
+        s.bottomPanelOpen = true
+      }),
+
+    closeTerminalSession: (sessionId: string) =>
+      set((s) => {
+        const idx = s.terminalSessions.findIndex((t: TerminalSessionInfo) => t.id === sessionId)
+        if (idx !== -1) {
+          s.terminalSessions.splice(idx, 1)
+          if (s.activeTerminalSessionId === sessionId) {
+            s.activeTerminalSessionId = s.terminalSessions.length > 0
+              ? s.terminalSessions[s.terminalSessions.length - 1].id
+              : null
+          }
+        }
+      }),
+
+    setActiveTerminalSession: (sessionId: string) =>
+      set((s) => {
+        s.activeTerminalSessionId = sessionId
+        s.activeBottomTab = 'terminal'
+        s.bottomPanelOpen = true
+      }),
 
     // ── Docker Actions ──
 
