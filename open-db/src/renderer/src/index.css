@@ -52,6 +52,38 @@
 .sql-comment { color: #6a9955; font-style: italic; }
 .sql-operator { color: #d4d4d4; }
 .sql-type { color: #4ec9b0; }
+.sql-boolean { color: #569cd6; font-weight: 600; }
+.sql-table { color: #9cdcfe; }
+.sql-alias { color: #9cdcfe; font-style: italic; }
+.sql-paren { color: #ffd700; }
+.sql-semicolon { color: #808080; }
+.sql-star { color: #d7ba7d; }
+.sql-dot { color: #cccccc; }
+.sql-param { color: #9cdcfe; }
+
+/* JSON highlighting */
+.json-key { color: #9cdcfe; }
+.json-string { color: #ce9178; }
+.json-number { color: #b5cea8; }
+.json-boolean { color: #569cd6; }
+.json-null { color: #569cd6; font-style: italic; }
+.json-brace { color: #ffd700; }
+.json-bracket { color: #da70d6; }
+.json-colon { color: #cccccc; }
+
+/* Generic code highlighting */
+.code-keyword { color: #c586c0; font-weight: 600; }
+.code-string { color: #ce9178; }
+.code-number { color: #b5cea8; }
+.code-comment { color: #6a9955; font-style: italic; }
+.code-function { color: #dcdcaa; }
+.code-type { color: #4ec9b0; }
+.code-variable { color: #9cdcfe; }
+.code-operator { color: #d4d4d4; }
+.code-decorator { color: #c586c0; }
+.code-tag { color: #569cd6; }
+.code-attr { color: #9cdcfe; }
+.code-punctuation { color: #808080; }
 
 /* ── Animations ── */
 .pulse-dot {

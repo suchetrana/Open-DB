@@ -79,10 +79,28 @@ interface ContainerInfo {
   createdAt: string
 }
 
+interface FilesystemAPI {
+  openFolder(): Promise<{ canceled: boolean; rootPath: string | null; tree: FileTreeNodeInfo[] }>
+  readDir(dirPath: string): Promise<FileTreeNodeInfo[]>
+  readFile(filePath: string): Promise<{ content: string; size: number; modified: string }>
+  saveFile(filePath: string, content: string): Promise<{ ok: boolean }>
+  openFile(): Promise<{ canceled: boolean; filePath: string | null; fileName: string | null; content: string | null }>
+  createFolder(parentPath: string, folderName: string): Promise<{ ok: boolean; path: string }>
+}
+
+interface FileTreeNodeInfo {
+  name: string
+  path: string
+  type: 'file' | 'directory'
+  children?: FileTreeNodeInfo[]
+  extension?: string
+}
+
 interface ElectronAPI {
   docker: DockerAPI
   terminal: TerminalAPI
   database: DatabaseAPI
+  filesystem: FilesystemAPI
 }
 
 declare global {

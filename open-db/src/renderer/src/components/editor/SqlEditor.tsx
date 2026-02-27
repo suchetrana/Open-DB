@@ -98,16 +98,41 @@ function highlightSql(text: string): string {
       } else if (FUNCTIONS.has(upper) || (text[j] === '(' && /[a-zA-Z]/.test(word[0]))) {
         result.push(`<span class="sql-function">${escHtml(word)}</span>`)
       } else if (upper === 'TRUE' || upper === 'FALSE') {
-        result.push(`<span class="sql-number">${escHtml(word)}</span>`)
+        result.push(`<span class="sql-boolean">${escHtml(word)}</span>`)
+      } else if (upper === 'NULL') {
+        result.push(`<span class="sql-keyword">${escHtml(word)}</span>`)
       } else {
-        result.push(escHtml(word))
+        // Identifiers — use param color for table/column-like names
+        result.push(`<span class="sql-param">${escHtml(word)}</span>`)
       }
       i = j
       continue
     }
     // Operators
     if ('=<>!+-*/%'.includes(text[i])) {
-      result.push(`<span class="sql-operator">${escHtml(text[i])}</span>`)
+      if (text[i] === '*') {
+        result.push(`<span class="sql-star">${escHtml(text[i])}</span>`)
+      } else {
+        result.push(`<span class="sql-operator">${escHtml(text[i])}</span>`)
+      }
+      i++
+      continue
+    }
+    // Parentheses
+    if (text[i] === '(' || text[i] === ')') {
+      result.push(`<span class="sql-paren">${escHtml(text[i])}</span>`)
+      i++
+      continue
+    }
+    // Semicolons
+    if (text[i] === ';') {
+      result.push(`<span class="sql-semicolon">${escHtml(text[i])}</span>`)
+      i++
+      continue
+    }
+    // Dots (schema.table)
+    if (text[i] === '.') {
+      result.push(`<span class="sql-dot">${escHtml(text[i])}</span>`)
       i++
       continue
     }

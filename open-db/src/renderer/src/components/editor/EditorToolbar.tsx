@@ -11,6 +11,9 @@ export function EditorToolbar() {
   const availableDatabases = useAppStore((s) => s.availableDatabases);
   const selectedDatabase = useAppStore((s) => s.selectedDatabase);
   const switchDatabase = useAppStore((s) => s.switchDatabase);
+  const saveCurrentFile = useAppStore((s) => s.saveCurrentFile);
+  const commitTransaction = useAppStore((s) => s.commitTransaction);
+  const rollbackTransaction = useAppStore((s) => s.rollbackTransaction);
 
   const [dbDropdownOpen, setDbDropdownOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -115,11 +118,27 @@ export function EditorToolbar() {
       <div className="ml-auto flex items-center gap-2">
         {/* Commit / Rollback group */}
         <div className="flex items-center bg-bg-input rounded border border-border-input overflow-hidden">
-          <button className="flex items-center gap-1.5 px-3 py-0.5 hover:bg-[#3e3e42] text-text-primary text-[11px] font-medium transition-colors border-r border-border-input">
+          <button
+            onClick={() => commitTransaction()}
+            disabled={!activeConnectionId || isExecuting}
+            className={clsx(
+              "flex items-center gap-1.5 px-3 py-0.5 text-text-primary text-[11px] font-medium transition-colors border-r border-border-input",
+              activeConnectionId && !isExecuting ? "hover:bg-[#3e3e42]" : "opacity-50 cursor-not-allowed"
+            )}
+            title="Commit transaction (sends COMMIT to the active connection)"
+          >
             <Icon name="check_circle" size={14} className="text-status-green" />
             Commit
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-0.5 hover:bg-[#3e3e42] text-text-primary text-[11px] font-medium transition-colors">
+          <button
+            onClick={() => rollbackTransaction()}
+            disabled={!activeConnectionId || isExecuting}
+            className={clsx(
+              "flex items-center gap-1.5 px-3 py-0.5 text-text-primary text-[11px] font-medium transition-colors",
+              activeConnectionId && !isExecuting ? "hover:bg-[#3e3e42]" : "opacity-50 cursor-not-allowed"
+            )}
+            title="Rollback transaction (sends ROLLBACK to the active connection)"
+          >
             <Icon name="cancel" size={14} className="text-syntax-string" />
             Rollback
           </button>
@@ -144,7 +163,11 @@ export function EditorToolbar() {
         </button>
 
         {/* Save button */}
-        <button className="flex items-center gap-1.5 px-3 py-0.5 bg-bg-input hover:bg-[#3e3e42] text-text-primary text-[11px] font-medium rounded-sm transition-colors border border-border-input">
+        <button
+          onClick={() => saveCurrentFile()}
+          className="flex items-center gap-1.5 px-3 py-0.5 bg-bg-input hover:bg-[#3e3e42] text-text-primary text-[11px] font-medium rounded-sm transition-colors border border-border-input"
+          title="Save file (Ctrl+S)"
+        >
           <Icon name="save" size={14} />
           Save
         </button>

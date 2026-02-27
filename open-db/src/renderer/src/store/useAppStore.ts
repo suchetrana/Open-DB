@@ -10,6 +10,7 @@ import type {
   ColumnDef,
   RawQueryResult,
   TerminalSessionInfo,
+  FileTreeNode,
 } from '@/types'
 
 /** Map a raw column name to a ColumnDef with sensible icon defaults */
@@ -30,31 +31,16 @@ function toColumnDef(name: string): ColumnDef {
   return { name, dataType: 'varchar', icon: 'abc', iconColor: 'text-syntax-keyword' }
 }
 
-/* ── Mock Data (static UI until real DB connection is wired) ── */
-const DEMO_TABS: EditorTab[] = [
-  { id: 't1', title: 'users_query.sql', type: 'sql', icon: 'code', iconColor: 'text-status-green', isActive: true, isModified: true, content: "SELECT id, username, email, role, last_login, status\nFROM   public.users\nWHERE  status = 'active'\nORDER  BY last_login DESC\nLIMIT  50;" },
-  { id: 't2', title: 'config.json', type: 'config', icon: 'description', iconColor: 'text-syntax-function', isActive: false, isModified: false },
-  { id: 't3', title: 'public.users', type: 'table', icon: 'table_chart', iconColor: 'text-syntax-decorator', isActive: false, isModified: false },
-]
-
-const DEMO_QUERY_RESULT: QueryResult = {
-  columns: [
-    { name: 'id', dataType: 'uuid', icon: 'key', iconColor: 'text-syntax-function', width: 'w-24' },
-    { name: 'username', dataType: 'varchar(50)', icon: 'abc', iconColor: 'text-syntax-keyword' },
-    { name: 'email', dataType: 'varchar(255)', icon: 'abc', iconColor: 'text-syntax-keyword', width: 'w-48' },
-    { name: 'role', dataType: 'enum', icon: 'list', iconColor: 'text-syntax-decorator', width: 'w-24' },
-    { name: 'last_login', dataType: 'timestamp', icon: 'schedule', iconColor: 'text-status-green', width: 'w-40' },
-    { name: 'status', dataType: 'varchar(20)', icon: 'abc', iconColor: 'text-syntax-keyword' },
-  ],
-  rows: [
-    { id: 'c8d4e1...', username: 'dev_sarah', email: 'sarah@opendb.com', role: 'ADMIN', last_login: '2023-10-27 14:30:00', status: 'active' },
-    { id: 'a1b2c3...', username: 'jason_bourne', email: 'jason@treadstone.org', role: 'USER', last_login: '2023-10-26 09:15:22', status: 'active' },
-    { id: 'f9e8d7...', username: 'alice_w', email: 'alice@wonderland.net', role: 'USER', last_login: '2023-10-25 18:45:10', status: 'active' },
-    { id: 'b4c5d6...', username: 'neo_matrix', email: 'one@matrix.com', role: 'ADMIN', last_login: '2023-10-25 11:20:05', status: 'active' },
-    { id: 'd1e2f3...', username: 'trinity_ops', email: 'trin@matrix.com', role: 'USER', last_login: '2023-10-24 16:10:44', status: 'active' },
-  ],
-  rowCount: 14,
-  executionTimeMs: 34,
+/** Infer a file icon from its name/extension */
+function fileTabIcon(fileName: string): { icon: string; iconColor: string } {
+  if (fileName.endsWith('.sql')) return { icon: 'database', iconColor: 'text-status-green' }
+  if (fileName.endsWith('.json')) return { icon: 'data_object', iconColor: 'text-syntax-decorator' }
+  if (fileName.endsWith('.md') || fileName.endsWith('.mdx')) return { icon: 'article', iconColor: 'text-accent-blue' }
+  if (fileName.endsWith('.ts') || fileName.endsWith('.tsx')) return { icon: 'code', iconColor: 'text-syntax-keyword' }
+  if (fileName.endsWith('.js') || fileName.endsWith('.jsx')) return { icon: 'javascript', iconColor: 'text-syntax-function' }
+  if (fileName.endsWith('.css') || fileName.endsWith('.scss')) return { icon: 'palette', iconColor: 'text-syntax-decorator' }
+  if (fileName.endsWith('.html')) return { icon: 'html', iconColor: 'text-status-red' }
+  return { icon: 'description', iconColor: 'text-syntax-function' }
 }
 
 /* ── Store Shape ── */
@@ -95,6 +81,15 @@ interface AppState {
   terminalSessions: TerminalSessionInfo[]
   activeTerminalSessionId: string | null
 
+  // File Explorer
+  workspaceRootPath: string | null
+  workspaceRootName: string | null
+  fileTree: FileTreeNode[]
+  expandedDirs: Record<string, boolean>
+
+  // Bottom Panel Height
+  bottomPanelHeight: number
+
   // ── UI Actions ──
   setSidebarView: (view: SidebarView) => void
   toggleSidebar: () => void
@@ -106,6 +101,19 @@ interface AppState {
   openTableTab: (schema: string, table: string) => void
   addNewFileTab: (title: string, content?: string) => void
   setResultsPanelMode: (mode: 'normal' | 'minimized' | 'maximized') => void
+  setBottomPanelHeight: (height: number) => void
+
+  // ── File Actions ──
+  saveCurrentFile: () => Promise<void>
+  commitTransaction: () => Promise<void>
+  rollbackTransaction: () => Promise<void>
+  createNewFolder: (parentPath: string, folderName: string) => Promise<void>
+
+  // ── File Explorer Actions ──
+  openFolder: () => Promise<void>
+  openFileDialog: () => Promise<void>
+  openFileFromTree: (filePath: string, fileName: string) => Promise<void>
+  toggleDir: (dirPath: string) => void
 
   // ── Database Actions ──
   loadConnections: () => Promise<void>
@@ -144,10 +152,10 @@ export const useAppStore = create<AppState>()(
     connections: [],
     activeConnectionId: null,
 
-    tabs: DEMO_TABS,
-    activeTabId: 't1',
+    tabs: [],
+    activeTabId: null,
 
-    queryResult: DEMO_QUERY_RESULT,
+    queryResult: null,
     isExecuting: false,
     queryError: null,
 
@@ -161,6 +169,13 @@ export const useAppStore = create<AppState>()(
 
     terminalSessions: [],
     activeTerminalSessionId: null,
+
+    workspaceRootPath: null,
+    workspaceRootName: null,
+    fileTree: [],
+    expandedDirs: {} as Record<string, boolean>,
+
+    bottomPanelHeight: 300,
 
     // ── UI Actions ──
     setSidebarView: (view) =>
@@ -248,13 +263,14 @@ export const useAppStore = create<AppState>()(
       set((s) => {
         const id = 'tab-' + Math.random().toString(36).slice(2, 8)
         const isSql = title.endsWith('.sql')
+        const { icon, iconColor } = fileTabIcon(title)
         s.tabs.forEach((t: EditorTab) => (t.isActive = false))
         s.tabs.push({
           id,
           title,
           type: isSql ? 'sql' : 'config',
-          icon: isSql ? 'code' : 'description',
-          iconColor: isSql ? 'text-status-green' : 'text-syntax-function',
+          icon,
+          iconColor,
           isActive: true,
           isModified: true,
           content,
@@ -265,6 +281,192 @@ export const useAppStore = create<AppState>()(
     setResultsPanelMode: (mode: 'normal' | 'minimized' | 'maximized') =>
       set((s) => {
         s.resultsPanelMode = mode
+      }),
+
+    setBottomPanelHeight: (height: number) =>
+      set((s) => {
+        s.bottomPanelHeight = Math.max(150, Math.min(600, height))
+      }),
+
+    // ── File Actions ──
+
+    saveCurrentFile: async () => {
+      const state = useAppStore.getState()
+      const tab = state.tabs.find((t) => t.id === state.activeTabId)
+      if (!tab) return
+
+      const filePath = (tab as any)._filePath as string | undefined
+      if (!filePath) {
+        // No file path — this is a new unsaved tab, nothing to save to disk
+        console.warn('[Save] Tab has no file path')
+        return
+      }
+
+      try {
+        await window.electronAPI.filesystem.saveFile(filePath, tab.content ?? '')
+        set((s) => {
+          const t = s.tabs.find((x: EditorTab) => x.id === tab.id)
+          if (t) t.isModified = false
+        })
+        console.log(`[Save] Saved ${filePath}`)
+      } catch (err) {
+        console.error('[Save] Failed:', err)
+      }
+    },
+
+    commitTransaction: async () => {
+      const { activeConnectionId } = useAppStore.getState()
+      if (!activeConnectionId) return
+      set((s) => { s.isExecuting = true })
+      try {
+        await window.electronAPI.database.executeQuery(activeConnectionId, 'COMMIT')
+        set((s) => {
+          s.isExecuting = false
+          s.queryError = null
+        })
+        console.log('[DB] COMMIT executed')
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err)
+        set((s) => {
+          s.isExecuting = false
+          s.queryError = msg
+        })
+      }
+    },
+
+    rollbackTransaction: async () => {
+      const { activeConnectionId } = useAppStore.getState()
+      if (!activeConnectionId) return
+      set((s) => { s.isExecuting = true })
+      try {
+        await window.electronAPI.database.executeQuery(activeConnectionId, 'ROLLBACK')
+        set((s) => {
+          s.isExecuting = false
+          s.queryError = null
+          s.queryResult = null
+        })
+        console.log('[DB] ROLLBACK executed')
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err)
+        set((s) => {
+          s.isExecuting = false
+          s.queryError = msg
+        })
+      }
+    },
+
+    createNewFolder: async (parentPath: string, folderName: string) => {
+      try {
+        await window.electronAPI.filesystem.createFolder(parentPath, folderName)
+        // Refresh the subtree for the parent by re-reading the root workspace
+        const state = useAppStore.getState()
+        if (state.workspaceRootPath) {
+          const dirTree = await window.electronAPI.filesystem.readDir(state.workspaceRootPath)
+          set((s) => {
+            s.fileTree = dirTree as FileTreeNode[]
+          })
+        }
+      } catch (err) {
+        console.error('[FS] Failed to create folder:', err)
+      }
+    },
+
+    // ── File Explorer Actions ──
+
+    openFolder: async () => {
+      try {
+        const result = await window.electronAPI.filesystem.openFolder()
+        if (result.canceled || !result.rootPath) return
+        const rootPath = result.rootPath
+        const rootName = rootPath.split(/[\\/]/).pop() ?? rootPath
+        set((s) => {
+          s.workspaceRootPath = rootPath
+          s.workspaceRootName = rootName
+          s.fileTree = result.tree as FileTreeNode[]
+          s.expandedDirs = {}
+          s.activeSidebarView = 'explorer'
+          s.sidebarOpen = true
+        })
+      } catch (err) {
+        console.error('Failed to open folder', err)
+      }
+    },
+
+    openFileDialog: async () => {
+      try {
+        const result = await window.electronAPI.filesystem.openFile()
+        if (result.canceled || !result.content) return
+        const fileName = result.fileName ?? 'untitled'
+        set((s) => {
+          const id = 'tab-' + Math.random().toString(36).slice(2, 8)
+          const isSql = fileName.endsWith('.sql')
+          const { icon, iconColor } = fileTabIcon(fileName)
+          s.tabs.forEach((t: EditorTab) => (t.isActive = false))
+          s.tabs.push({
+            id,
+            title: fileName,
+            type: isSql ? 'sql' : 'config',
+            icon,
+            iconColor,
+            isActive: true,
+            isModified: false,
+            content: result.content!,
+          })
+          s.activeTabId = id
+        })
+      } catch (err) {
+        console.error('Failed to open file', err)
+      }
+    },
+
+    openFileFromTree: async (filePath: string, fileName: string) => {
+      // Check if already open — match by filePath first (unique), then by title
+      const state = useAppStore.getState()
+      const existing = state.tabs.find(
+        (t) => (t as any)._filePath === filePath
+      )
+      if (existing) {
+        set((s) => {
+          s.tabs.forEach((t: EditorTab) => (t.isActive = t.id === existing.id))
+          s.activeTabId = existing.id
+        })
+        return
+      }
+
+      try {
+        const result = await window.electronAPI.filesystem.readFile(filePath)
+        const isSql = fileName.endsWith('.sql')
+        const { icon, iconColor } = fileTabIcon(fileName)
+
+        set((s) => {
+          const id = 'tab-' + Math.random().toString(36).slice(2, 8)
+          s.tabs.forEach((t: EditorTab) => (t.isActive = false))
+          const newTab: any = {
+            id,
+            title: fileName,
+            type: isSql ? 'sql' : 'config',
+            icon,
+            iconColor,
+            isActive: true,
+            isModified: false,
+            content: result.content,
+            _filePath: filePath,
+          }
+          s.tabs.push(newTab)
+          s.activeTabId = id
+        })
+      } catch (err) {
+        console.error('Failed to read file', err)
+      }
+    },
+
+    toggleDir: (dirPath: string) =>
+      set((s) => {
+        if (s.expandedDirs[dirPath]) {
+          delete s.expandedDirs[dirPath]
+        } else {
+          s.expandedDirs[dirPath] = true
+        }
       }),
 
     // ── Database Actions ──

@@ -19,6 +19,7 @@ const TOP_ITEMS: NavItem[] = [
 ];
 
 const BOTTOM_ITEMS = [
+  { icon: "folder_open", label: "Open Folder", action: "openFolder" },
   { icon: "account_circle", label: "Account" },
   { icon: "settings", label: "Settings" },
 ];
@@ -114,6 +115,7 @@ export function ActivityBar() {
   const activeSidebarView = useAppStore((s) => s.activeSidebarView);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const setSidebarView = useAppStore((s) => s.setSidebarView);
+  const openFolder = useAppStore((s) => s.openFolder);
   const [showTerminalMenu, setShowTerminalMenu] = useState(false);
 
   return (
@@ -165,6 +167,9 @@ export function ActivityBar() {
           <button
             key={item.label}
             title={item.label}
+            onClick={() => {
+              if ((item as any).action === 'openFolder') openFolder()
+            }}
             className="cursor-pointer text-[#858585] hover:text-white transition-colors"
           >
             <Icon name={item.icon} size={24} />

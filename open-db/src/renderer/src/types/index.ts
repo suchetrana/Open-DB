@@ -107,5 +107,14 @@ export interface TerminalSessionInfo {
   cmd?: string[];
 }
 
+// ── File Tree ──
+export interface FileTreeNode {
+  name: string
+  path: string
+  type: 'file' | 'directory'
+  children?: FileTreeNode[]
+  extension?: string
+}
+
 // ── Bottom Panel ──
 export type BottomPanelTab = "problems" | "output" | "terminal" | "debug";

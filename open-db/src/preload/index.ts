@@ -75,6 +75,27 @@ export const electronAPI = {
     }
   },
 
+  // ── Filesystem ──
+  filesystem: {
+    openFolder: (): Promise<{ canceled: boolean; rootPath: string | null; tree: unknown[] }> =>
+      ipcRenderer.invoke('fs:open-folder'),
+
+    readDir: (dirPath: string): Promise<unknown[]> =>
+      ipcRenderer.invoke('fs:read-dir', dirPath),
+
+    readFile: (filePath: string): Promise<{ content: string; size: number; modified: string }> =>
+      ipcRenderer.invoke('fs:read-file', filePath),
+
+    saveFile: (filePath: string, content: string): Promise<{ ok: boolean }> =>
+      ipcRenderer.invoke('fs:save-file', filePath, content),
+
+    openFile: (): Promise<{ canceled: boolean; filePath: string | null; fileName: string | null; content: string | null }> =>
+      ipcRenderer.invoke('fs:open-file'),
+
+    createFolder: (parentPath: string, folderName: string): Promise<{ ok: boolean; path: string }> =>
+      ipcRenderer.invoke('fs:create-folder', parentPath, folderName),
+  },
+
   // ── Database ──
   database: {
     connect: (

@@ -1,4 +1,5 @@
-import { Icon } from "@/components/ui";
+import { useRef, useCallback } from "react";
+import { Icon, Splitter } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 import { clsx } from "clsx";
 import { TerminalView } from "./TerminalView";
@@ -20,12 +21,35 @@ export function BottomPanel() {
   const setActiveTerminalSession = useAppStore((s) => s.setActiveTerminalSession);
   const closeTerminalSession = useAppStore((s) => s.closeTerminalSession);
   const openLocalTerminal = useAppStore((s) => s.openLocalTerminal);
+  const bottomPanelHeight = useAppStore((s) => s.bottomPanelHeight);
+  const setBottomPanelHeight = useAppStore((s) => s.setBottomPanelHeight);
+
+  // Resize drag logic
+  const baseHeight = useRef(bottomPanelHeight);
+
+  const handleResizeStart = useCallback(() => {
+    baseHeight.current = bottomPanelHeight;
+  }, [bottomPanelHeight]);
+
+  const handleResize = useCallback(
+    (delta: number) => {
+      // delta is negative when dragging up (panel grows)
+      setBottomPanelHeight(baseHeight.current - delta);
+    },
+    [setBottomPanelHeight]
+  );
 
   // Get active session
   const activeSession = terminalSessions.find((s) => s.id === activeTerminalSessionId) ?? null;
 
   return (
-    <div className="h-44 bg-bg-elevated border-t border-border-default flex flex-col shrink-0">
+    <div style={{ height: bottomPanelHeight }} className="bg-bg-elevated border-t border-border-default flex flex-col shrink-0">
+      {/* Row splitter (vertical ↕) */}
+      <Splitter
+        direction="vertical"
+        onResizeStart={handleResizeStart}
+        onResize={handleResize}
+      />
       {/* Tab bar */}
       <div className="flex items-center px-4 h-8 gap-6 border-b border-border-default bg-bg-surface">
         {TABS.map((tab) => (
