@@ -10,6 +10,7 @@ export function EditorToolbar() {
   const connections = useAppStore((s) => s.connections);
   const availableDatabases = useAppStore((s) => s.availableDatabases);
   const selectedDatabase = useAppStore((s) => s.selectedDatabase);
+  const selectedText = useAppStore((s) => s.selectedText);
   const switchDatabase = useAppStore((s) => s.switchDatabase);
   const saveCurrentFile = useAppStore((s) => s.saveCurrentFile);
   const commitTransaction = useAppStore((s) => s.commitTransaction);
@@ -148,7 +149,7 @@ export function EditorToolbar() {
 
         {/* Run button */}
         <button
-          onClick={() => executeQuery()}
+          onClick={() => executeQuery(selectedText ?? undefined)}
           disabled={isExecuting}
           className={clsx(
             "flex items-center gap-1.5 px-3 py-0.5 text-white text-[11px] font-medium rounded-sm transition-colors shadow-sm",
@@ -156,10 +157,10 @@ export function EditorToolbar() {
               ? "bg-bg-input text-text-muted cursor-wait"
               : "bg-accent-button hover:bg-accent-button-hover"
           )}
-          title="Run query (Ctrl+Enter)"
+          title={selectedText ? "Run selected query (Ctrl+Enter)" : "Run query (Ctrl+Enter)"}
         >
           <Icon name={isExecuting ? "hourglass_empty" : "play_arrow"} size={14} />
-          {isExecuting ? "Running…" : "Run"}
+          {isExecuting ? "Running…" : (selectedText ? "Run Selection" : "Run")}
         </button>
 
         {/* Save button */}

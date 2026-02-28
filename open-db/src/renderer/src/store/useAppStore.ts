@@ -60,6 +60,7 @@ interface AppState {
   // Editor
   tabs: EditorTab[]
   activeTabId: string | null
+  selectedText: string | null
 
   // Query Results
   queryResult: QueryResult | null
@@ -98,6 +99,7 @@ interface AppState {
   setBottomTab: (tab: BottomPanelTab) => void
   toggleBottomPanel: () => void
   updateTabContent: (tabId: string, content: string) => void
+  setSelectedText: (text: string | null) => void
   openTableTab: (schema: string, table: string) => void
   addNewFileTab: (title: string, content?: string) => void
   setResultsPanelMode: (mode: 'normal' | 'minimized' | 'maximized') => void
@@ -123,7 +125,7 @@ interface AppState {
   disconnectDatabase: (connId: string) => Promise<void>
   addConnection: (conn: Connection) => void
   deleteConnection: (connId: string) => Promise<void>
-  executeQuery: () => Promise<void>
+  executeQuery: (selectedText?: string) => Promise<void>
   fetchDatabases: () => Promise<void>
   switchDatabase: (dbName: string) => Promise<void>
 
@@ -156,6 +158,7 @@ export const useAppStore = create<AppState>()(
 
     tabs: [],
     activeTabId: null,
+    selectedText: null,
 
     queryResult: null,
     isExecuting: false,
@@ -234,6 +237,11 @@ export const useAppStore = create<AppState>()(
           tab.content = content
           tab.isModified = true
         }
+      }),
+
+    setSelectedText: (text: string | null) =>
+      set((s) => {
+        s.selectedText = text
       }),
 
     openTableTab: (schema: string, table: string) =>
@@ -653,12 +661,29 @@ export const useAppStore = create<AppState>()(
       }
     },
 
-    executeQuery: async () => {
+    executeQuery: async (selectedText?: string) => {
       const state = useAppStore.getState()
       const { activeTabId, tabs, activeConnectionId } = state
 
       const tab = tabs.find((t) => t.id === activeTabId)
       if (!tab?.content?.trim()) return
+
+      // Auto-save the file first if it has a file path and is modified
+      const filePath = (tab as unknown as { _filePath?: string })._filePath
+      if (filePath && tab.isModified) {
+        try {
+          await window.electronAPI.filesystem.saveFile(filePath, tab.content)
+          set((s) => {
+            const t = s.tabs.find((x: EditorTab) => x.id === activeTabId)
+            if (t) t.isModified = false
+          })
+        } catch (err) {
+          console.error('[FS] Auto-save failed:', err)
+        }
+      }
+
+      // Use selected text if provided, otherwise use the entire file content
+      const sqlToExecute = selectedText?.trim() || tab.content
 
       set((s) => {
         s.isExecuting = true
@@ -676,7 +701,7 @@ export const useAppStore = create<AppState>()(
       try {
         const raw = (await window.electronAPI.database.executeQuery(
           activeConnectionId,
-          tab.content
+          sqlToExecute
         )) as RawQueryResult
 
         const columns: ColumnDef[] = raw.columns.map(toColumnDef)
