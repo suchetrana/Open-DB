@@ -147,6 +147,7 @@ export function SqlEditor() {
   const activeTabId = useAppStore((s) => s.activeTabId)
   const tabs = useAppStore((s) => s.tabs)
   const updateTabContent = useAppStore((s) => s.updateTabContent)
+  const setSelectedText = useAppStore((s) => s.setSelectedText)
   const executeQuery = useAppStore((s) => s.executeQuery)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const preRef = useRef<HTMLPreElement>(null)
@@ -160,18 +161,35 @@ export function SqlEditor() {
   const lineCount = useMemo(() => content.split('\n').length, [content])
   const highlighted = useMemo(() => highlightSql(content), [content])
 
+  // Track selection changes and update store
+  const handleSelectionChange = useCallback(() => {
+    const ta = textareaRef.current
+    if (ta && ta.selectionStart !== ta.selectionEnd) {
+      setSelectedText(ta.value.substring(ta.selectionStart, ta.selectionEnd))
+    } else {
+      setSelectedText(null)
+    }
+  }, [setSelectedText])
+
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       if (activeTabId) updateTabContent(activeTabId, e.target.value)
+      handleSelectionChange()
     },
-    [activeTabId, updateTabContent]
+    [activeTabId, updateTabContent, handleSelectionChange]
   )
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if ((e.ctrlKey && e.key === 'Enter') || e.key === 'F5') {
         e.preventDefault()
-        executeQuery()
+        const ta = textareaRef.current
+        // Get selected text if any
+        let selectedText: string | undefined
+        if (ta && ta.selectionStart !== ta.selectionEnd) {
+          selectedText = ta.value.substring(ta.selectionStart, ta.selectionEnd)
+        }
+        executeQuery(selectedText)
       }
       if (e.key === 'Tab') {
         e.preventDefault()
@@ -225,6 +243,9 @@ export function SqlEditor() {
           value={content}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onKeyUp={handleSelectionChange}
+          onClick={handleSelectionChange}
+          onSelect={handleSelectionChange}
           onScroll={syncScroll}
           spellCheck={false}
           className="absolute inset-0 w-full h-full bg-transparent text-[13px] leading-[20px] text-transparent caret-text-primary outline-none resize-none py-3 px-4 overflow-auto font-mono whitespace-pre-wrap break-words placeholder:text-text-muted"
