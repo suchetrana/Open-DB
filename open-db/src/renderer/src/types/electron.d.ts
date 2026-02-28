@@ -86,6 +86,8 @@ interface FilesystemAPI {
   saveFile(filePath: string, content: string): Promise<{ ok: boolean }>
   openFile(): Promise<{ canceled: boolean; filePath: string | null; fileName: string | null; content: string | null }>
   createFolder(parentPath: string, folderName: string): Promise<{ ok: boolean; path: string }>
+  createFile(parentPath: string, fileName: string): Promise<{ ok: boolean; path: string }>
+  deleteItem(itemPath: string): Promise<{ ok: boolean }>
 }
 
 interface FileTreeNodeInfo {

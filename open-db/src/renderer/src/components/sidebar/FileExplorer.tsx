@@ -52,41 +52,136 @@ function fileIcon(ext?: string): { icon: string; color: string } {
 }
 
 // ── Single tree node (recursive) ──
-function TreeNode({ node, depth }: { node: FileTreeNode; depth: number }) {
+function TreeNode({ 
+  node, 
+  depth, 
+  onCreateFile, 
+  onCreateFolder,
+  creatingItem,
+  newItemName,
+  setNewItemName,
+  handleCreateItem,
+  clearCreatingItem,
+}: { 
+  node: FileTreeNode; 
+  depth: number;
+  onCreateFile: (parentPath: string) => void;
+  onCreateFolder: (parentPath: string) => void;
+  creatingItem: { type: 'file' | 'folder'; parentPath: string } | null;
+  newItemName: string;
+  setNewItemName: (name: string) => void;
+  handleCreateItem: () => void;
+  clearCreatingItem: () => void;
+}) {
   const expandedDirs = useAppStore((s) => s.expandedDirs)
   const toggleDir = useAppStore((s) => s.toggleDir)
   const openFileFromTree = useAppStore((s) => s.openFileFromTree)
+  const deleteFileOrFolder = useAppStore((s) => s.deleteFileOrFolder)
+  const [showActions, setShowActions] = useState(false)
 
   const isExpanded = !!expandedDirs[node.path]
   const paddingLeft = 8 + depth * 16
+  const isCreatingHere = creatingItem && creatingItem.parentPath === node.path
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const confirmed = window.confirm(`Delete "${node.name}"?`)
+    if (confirmed) {
+      await deleteFileOrFolder(node.path)
+    }
+  }
 
   if (node.type === 'directory') {
     return (
       <>
-        <button
-          onClick={() => toggleDir(node.path)}
-          className="w-full flex items-center gap-1 py-[2px] hover:bg-bg-surface-hover text-[11px] text-text-primary select-none cursor-pointer"
+        <div
+          className="group w-full flex items-center gap-1 py-[2px] hover:bg-bg-surface-hover text-[11px] text-text-primary select-none cursor-pointer"
           style={{ paddingLeft }}
+          onMouseEnter={() => setShowActions(true)}
+          onMouseLeave={() => setShowActions(false)}
         >
-          <Icon
-            name="chevron_right"
-            size={14}
-            className={clsx(
-              'transition-transform shrink-0',
-              isExpanded && 'rotate-90'
-            )}
-          />
-          <Icon
-            name={isExpanded ? 'folder_open' : 'folder'}
-            size={16}
-            className="text-syntax-function shrink-0"
-          />
-          <span className="truncate">{node.name}</span>
-        </button>
-        {isExpanded && node.children && (
+          <button
+            onClick={() => toggleDir(node.path)}
+            className="flex items-center gap-1 flex-1 min-w-0"
+          >
+            <Icon
+              name="chevron_right"
+              size={14}
+              className={clsx(
+                'transition-transform shrink-0',
+                isExpanded && 'rotate-90'
+              )}
+            />
+            <Icon
+              name={isExpanded ? 'folder_open' : 'folder'}
+              size={16}
+              className="text-syntax-function shrink-0"
+            />
+            <span className="truncate">{node.name}</span>
+          </button>
+          {showActions && (
+            <div className="flex items-center gap-0.5 mr-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); onCreateFile(node.path) }}
+                className="p-0.5 text-text-secondary hover:text-text-primary"
+                title="New File"
+              >
+                <Icon name="note_add" size={14} />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onCreateFolder(node.path) }}
+                className="p-0.5 text-text-secondary hover:text-text-primary"
+                title="New Folder"
+              >
+                <Icon name="create_new_folder" size={14} />
+              </button>
+              <button
+                onClick={handleDelete}
+                className="p-0.5 text-text-secondary hover:text-status-red"
+                title="Delete"
+              >
+                <Icon name="delete" size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+        {isExpanded && (
           <div>
-            {node.children.map((child) => (
-              <TreeNode key={child.path} node={child} depth={depth + 1} />
+            {/* Show input for creating inside this folder */}
+            {isCreatingHere && (
+              <div className="flex items-center gap-1 px-2 py-1" style={{ paddingLeft: paddingLeft + 16 }}>
+                <Icon 
+                  name={creatingItem.type === 'folder' ? 'create_new_folder' : 'note_add'} 
+                  size={14} 
+                  className={creatingItem.type === 'folder' ? 'text-syntax-function shrink-0' : 'text-text-secondary shrink-0'} 
+                />
+                <input
+                  autoFocus
+                  value={newItemName}
+                  onChange={(e) => setNewItemName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateItem()
+                    if (e.key === 'Escape') clearCreatingItem()
+                  }}
+                  onBlur={() => clearCreatingItem()}
+                  placeholder={creatingItem.type === 'folder' ? 'Folder name…' : 'File name…'}
+                  className="flex-1 bg-bg-input border border-accent-blue rounded px-1.5 py-0.5 text-[11px] text-text-primary outline-none"
+                />
+              </div>
+            )}
+            {node.children?.map((child) => (
+              <TreeNode 
+                key={child.path} 
+                node={child} 
+                depth={depth + 1}
+                onCreateFile={onCreateFile}
+                onCreateFolder={onCreateFolder}
+                creatingItem={creatingItem}
+                newItemName={newItemName}
+                setNewItemName={setNewItemName}
+                handleCreateItem={handleCreateItem}
+                clearCreatingItem={clearCreatingItem}
+              />
             ))}
           </div>
         )}
@@ -97,14 +192,29 @@ function TreeNode({ node, depth }: { node: FileTreeNode; depth: number }) {
   // File node
   const { icon, color } = fileIcon(node.extension)
   return (
-    <button
-      onClick={() => openFileFromTree(node.path, node.name)}
-      className="w-full flex items-center gap-1.5 py-[2px] hover:bg-bg-surface-hover text-[11px] text-text-secondary hover:text-text-primary select-none cursor-pointer"
+    <div
+      className="group w-full flex items-center gap-1.5 py-[2px] hover:bg-bg-surface-hover text-[11px] text-text-secondary hover:text-text-primary select-none cursor-pointer"
       style={{ paddingLeft: paddingLeft + 14 }}
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => setShowActions(false)}
     >
-      <Icon name={icon} size={14} className={clsx(color, 'shrink-0')} />
-      <span className="truncate">{node.name}</span>
-    </button>
+      <button
+        onClick={() => openFileFromTree(node.path, node.name)}
+        className="flex items-center gap-1.5 flex-1 min-w-0"
+      >
+        <Icon name={icon} size={14} className={clsx(color, 'shrink-0')} />
+        <span className="truncate">{node.name}</span>
+      </button>
+      {showActions && (
+        <button
+          onClick={handleDelete}
+          className="p-0.5 mr-1 text-text-secondary hover:text-status-red"
+          title="Delete"
+        >
+          <Icon name="delete" size={14} />
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -115,16 +225,47 @@ export function FileExplorer() {
   const openFolder = useAppStore((s) => s.openFolder)
   const openFileDialog = useAppStore((s) => s.openFileDialog)
   const createNewFolder = useAppStore((s) => s.createNewFolder)
+  const createNewFile = useAppStore((s) => s.createNewFile)
+  const expandedDirs = useAppStore((s) => s.expandedDirs)
+  const toggleDir = useAppStore((s) => s.toggleDir)
 
-  const [creatingFolder, setCreatingFolder] = useState(false)
-  const [newFolderName, setNewFolderName] = useState('')
+  const [creatingItem, setCreatingItem] = useState<{ type: 'file' | 'folder'; parentPath: string } | null>(null)
+  const [newItemName, setNewItemName] = useState('')
 
-  const handleCreateFolder = async () => {
-    const name = newFolderName.trim()
-    if (!name || !workspaceRootPath) return
-    await createNewFolder(workspaceRootPath, name)
-    setNewFolderName('')
-    setCreatingFolder(false)
+  const handleCreateItem = async () => {
+    const name = newItemName.trim()
+    if (!name || !creatingItem) return
+    
+    if (creatingItem.type === 'folder') {
+      await createNewFolder(creatingItem.parentPath, name)
+    } else {
+      await createNewFile(creatingItem.parentPath, name)
+    }
+    setNewItemName('')
+    setCreatingItem(null)
+  }
+
+  const startCreatingFile = (parentPath: string) => {
+    // Expand the parent folder if not already expanded (except for root)
+    if (parentPath !== workspaceRootPath && !expandedDirs[parentPath]) {
+      toggleDir(parentPath)
+    }
+    setCreatingItem({ type: 'file', parentPath })
+    setNewItemName('')
+  }
+
+  const startCreatingFolder = (parentPath: string) => {
+    // Expand the parent folder if not already expanded (except for root)
+    if (parentPath !== workspaceRootPath && !expandedDirs[parentPath]) {
+      toggleDir(parentPath)
+    }
+    setCreatingItem({ type: 'folder', parentPath })
+    setNewItemName('')
+  }
+
+  const clearCreatingItem = () => {
+    setCreatingItem(null)
+    setNewItemName('')
   }
 
   // No folder open — show "Open Folder" prompt
@@ -166,22 +307,22 @@ export function FileExplorer() {
           <button
             onClick={(e) => {
               e.preventDefault()
-              setCreatingFolder(true)
+              startCreatingFile(workspaceRootPath)
+            }}
+            className="text-text-secondary hover:text-text-primary"
+            title="New File"
+          >
+            <Icon name="note_add" size={14} />
+          </button>
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              startCreatingFolder(workspaceRootPath)
             }}
             className="text-text-secondary hover:text-text-primary"
             title="New Folder"
           >
             <Icon name="create_new_folder" size={14} />
-          </button>
-          <button
-            onClick={(e) => {
-              e.preventDefault()
-              openFileDialog()
-            }}
-            className="text-text-secondary hover:text-text-primary"
-            title="Open File"
-          >
-            <Icon name="note_add" size={14} />
           </button>
           <button
             onClick={(e) => {
@@ -197,25 +338,40 @@ export function FileExplorer() {
       </summary>
 
       <div className="overflow-y-auto max-h-[50vh]">
-        {creatingFolder && (
+        {creatingItem && creatingItem.parentPath === workspaceRootPath && (
           <div className="flex items-center gap-1 px-2 py-1">
-            <Icon name="create_new_folder" size={14} className="text-syntax-function shrink-0" />
+            <Icon 
+              name={creatingItem.type === 'folder' ? 'create_new_folder' : 'note_add'} 
+              size={14} 
+              className={creatingItem.type === 'folder' ? 'text-syntax-function shrink-0' : 'text-text-secondary shrink-0'} 
+            />
             <input
               autoFocus
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateFolder()
-                if (e.key === 'Escape') { setCreatingFolder(false); setNewFolderName('') }
+                if (e.key === 'Enter') handleCreateItem()
+                if (e.key === 'Escape') clearCreatingItem()
               }}
-              onBlur={() => { setCreatingFolder(false); setNewFolderName('') }}
-              placeholder="Folder name…"
+              onBlur={() => clearCreatingItem()}
+              placeholder={creatingItem.type === 'folder' ? 'Folder name…' : 'File name…'}
               className="flex-1 bg-bg-input border border-accent-blue rounded px-1.5 py-0.5 text-[11px] text-text-primary outline-none"
             />
           </div>
         )}
         {fileTree.map((node) => (
-          <TreeNode key={node.path} node={node} depth={0} />
+          <TreeNode 
+            key={node.path} 
+            node={node} 
+            depth={0}
+            onCreateFile={startCreatingFile}
+            onCreateFolder={startCreatingFolder}
+            creatingItem={creatingItem}
+            newItemName={newItemName}
+            setNewItemName={setNewItemName}
+            handleCreateItem={handleCreateItem}
+            clearCreatingItem={clearCreatingItem}
+          />
         ))}
       </div>
     </details>

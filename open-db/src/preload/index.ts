@@ -94,6 +94,12 @@ export const electronAPI = {
 
     createFolder: (parentPath: string, folderName: string): Promise<{ ok: boolean; path: string }> =>
       ipcRenderer.invoke('fs:create-folder', parentPath, folderName),
+
+    createFile: (parentPath: string, fileName: string): Promise<{ ok: boolean; path: string }> =>
+      ipcRenderer.invoke('fs:create-file', parentPath, fileName),
+
+    deleteItem: (itemPath: string): Promise<{ ok: boolean }> =>
+      ipcRenderer.invoke('fs:delete', itemPath),
   },
 
   // ── Database ──

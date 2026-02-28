@@ -149,4 +149,35 @@ export function registerFilesystemHandlers(): void {
       throw new Error(`Failed to create folder: ${fullPath}`)
     }
   })
+
+  // Create a new file
+  ipcMain.handle('fs:create-file', async (_e, parentPath: string, fileName: string) => {
+    const fullPath = path.join(parentPath, fileName)
+    try {
+      // Check if file already exists
+      if (fs.existsSync(fullPath)) {
+        throw new Error(`File already exists: ${fullPath}`)
+      }
+      fs.writeFileSync(fullPath, '', 'utf-8')
+      return { ok: true, path: fullPath }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : `Failed to create file: ${fullPath}`
+      throw new Error(msg)
+    }
+  })
+
+  // Delete a file or folder
+  ipcMain.handle('fs:delete', async (_e, itemPath: string) => {
+    try {
+      const stat = fs.statSync(itemPath)
+      if (stat.isDirectory()) {
+        fs.rmSync(itemPath, { recursive: true, force: true })
+      } else {
+        fs.unlinkSync(itemPath)
+      }
+      return { ok: true }
+    } catch (err) {
+      throw new Error(`Failed to delete: ${itemPath}`)
+    }
+  })
 }
