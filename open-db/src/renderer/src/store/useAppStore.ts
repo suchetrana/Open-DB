@@ -108,6 +108,8 @@ interface AppState {
   commitTransaction: () => Promise<void>
   rollbackTransaction: () => Promise<void>
   createNewFolder: (parentPath: string, folderName: string) => Promise<void>
+  createNewFile: (parentPath: string, fileName: string) => Promise<void>
+  deleteFileOrFolder: (itemPath: string) => Promise<void>
 
   // ── File Explorer Actions ──
   openFolder: () => Promise<void>
@@ -368,6 +370,53 @@ export const useAppStore = create<AppState>()(
         }
       } catch (err) {
         console.error('[FS] Failed to create folder:', err)
+      }
+    },
+
+    createNewFile: async (parentPath: string, fileName: string) => {
+      try {
+        const result = await window.electronAPI.filesystem.createFile(parentPath, fileName)
+        // Refresh the file tree
+        const state = useAppStore.getState()
+        if (state.workspaceRootPath) {
+          const dirTree = await window.electronAPI.filesystem.readDir(state.workspaceRootPath)
+          set((s) => {
+            s.fileTree = dirTree as FileTreeNode[]
+          })
+        }
+        // Open the newly created file in editor
+        if (result.ok && result.path) {
+          useAppStore.getState().openFileFromTree(result.path, fileName)
+        }
+      } catch (err) {
+        console.error('[FS] Failed to create file:', err)
+      }
+    },
+
+    deleteFileOrFolder: async (itemPath: string) => {
+      try {
+        await window.electronAPI.filesystem.deleteItem(itemPath)
+        // Refresh the file tree
+        const state = useAppStore.getState()
+        if (state.workspaceRootPath) {
+          const dirTree = await window.electronAPI.filesystem.readDir(state.workspaceRootPath)
+          set((s) => {
+            s.fileTree = dirTree as FileTreeNode[]
+          })
+        }
+        // Close any tabs that have this file open
+        set((s) => {
+          const tabsToRemove = s.tabs.filter(t => (t as unknown as { _filePath?: string })._filePath === itemPath)
+          if (tabsToRemove.length > 0) {
+            s.tabs = s.tabs.filter(t => (t as unknown as { _filePath?: string })._filePath !== itemPath)
+            // If active tab was closed, select another
+            if (tabsToRemove.some(t => t.id === s.activeTabId)) {
+              s.activeTabId = s.tabs.length > 0 ? s.tabs[0].id : null
+            }
+          }
+        })
+      } catch (err) {
+        console.error('[FS] Failed to delete:', err)
       }
     },
 
