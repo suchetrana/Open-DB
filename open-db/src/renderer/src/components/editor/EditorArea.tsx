@@ -1,7 +1,8 @@
-import { useRef, useCallback, useState, useEffect } from "react";
+import { useRef, useCallback, useState, useEffect, useMemo } from "react";
 import { EditorTabs } from "./EditorTabs";
 import { EditorToolbar } from "./EditorToolbar";
 import { SqlEditor } from "./SqlEditor";
+import { TableStructureView } from "./TableStructureView";
 import { ResultsPanel } from "@/components/results/ResultsPanel";
 import { Icon, Splitter } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
@@ -60,6 +61,13 @@ export function EditorArea() {
   const activeTabId = useAppStore((s) => s.activeTabId);
   const saveCurrentFile = useAppStore((s) => s.saveCurrentFile);
 
+  const activeTab = useMemo(
+    () => tabs.find((t) => t.id === activeTabId),
+    [tabs, activeTabId]
+  );
+
+  const isStructureTab = activeTab?.type === 'structure';
+
   // Split pane: track editor height ratio as a percentage
   const containerRef = useRef<HTMLDivElement>(null);
   const [editorRatio, setEditorRatio] = useState(0.55); // 55% editor, 45% results
@@ -91,6 +99,20 @@ export function EditorArea() {
   // No tabs open — show welcome
   if (tabs.length === 0 || !activeTabId) {
     return <WelcomeScreen />;
+  }
+
+  // Structure tab — full-width Beekeeper-style table view
+  if (isStructureTab && activeTab) {
+    return (
+      <>
+        <EditorTabs />
+        <TableStructureView
+          connId={(activeTab as any)._connId}
+          schema={(activeTab as any)._schema}
+          tableName={(activeTab as any)._tableName}
+        />
+      </>
+    );
   }
 
   return (

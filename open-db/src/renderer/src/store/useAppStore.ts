@@ -101,6 +101,7 @@ interface AppState {
   updateTabContent: (tabId: string, content: string) => void
   setSelectedText: (text: string | null) => void
   openTableTab: (schema: string, table: string) => void
+  openStructureTab: (connId: string, schema: string, table: string) => void
   addNewFileTab: (title: string, content?: string) => void
   setResultsPanelMode: (mode: 'normal' | 'minimized' | 'maximized') => void
   setBottomPanelHeight: (height: number) => void
@@ -266,6 +267,34 @@ export const useAppStore = create<AppState>()(
           isModified: false,
           content: `SELECT * FROM ${schema}.${table} LIMIT 100;`,
         })
+        s.activeTabId = id
+      }),
+
+    openStructureTab: (connId: string, schema: string, table: string) =>
+      set((s) => {
+        const title = `${table}`
+        // If already open, just switch to it
+        const existing = s.tabs.find((t: EditorTab) => t.type === 'structure' && (t as any)._schema === schema && (t as any)._tableName === table && (t as any)._connId === connId)
+        if (existing) {
+          s.tabs.forEach((t: EditorTab) => (t.isActive = t.id === existing.id))
+          s.activeTabId = existing.id
+          return
+        }
+        const id = 'tab-' + Math.random().toString(36).slice(2, 8)
+        s.tabs.forEach((t: EditorTab) => (t.isActive = false))
+        const newTab: any = {
+          id,
+          title,
+          type: 'structure',
+          icon: 'table_chart',
+          iconColor: 'text-syntax-decorator',
+          isActive: true,
+          isModified: false,
+          _schema: schema,
+          _tableName: table,
+          _connId: connId,
+        }
+        s.tabs.push(newTab)
         s.activeTabId = id
       }),
 

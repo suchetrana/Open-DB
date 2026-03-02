@@ -35,7 +35,7 @@
   color: white;
 }
 
-/* ── SQL Syntax Highlighting ── */
+/* ── SQL Syntax Highlighting (Beekeeper-style) ── */
 .syntax-keyword { color: #569cd6; font-weight: bold; }
 .syntax-function { color: #dcdcaa; }
 .syntax-string { color: #ce9178; }
@@ -44,22 +44,28 @@
 .syntax-operator { color: #d4d4d4; }
 .syntax-type { color: #4ec9b0; }
 
-/* SQL editor overlay highlighting */
-.sql-keyword { color: #569cd6; font-weight: 600; }
+/* SQL editor overlay highlighting — enhanced colors */
+.sql-keyword { color: #569cd6; font-weight: 600; text-shadow: 0 0 1px rgba(86, 156, 214, 0.15); }
 .sql-function { color: #dcdcaa; }
 .sql-string { color: #ce9178; }
 .sql-number { color: #b5cea8; }
-.sql-comment { color: #6a9955; font-style: italic; }
+.sql-comment { color: #6a9955; font-style: italic; opacity: 0.85; }
 .sql-operator { color: #d4d4d4; }
-.sql-type { color: #4ec9b0; }
+.sql-type { color: #4ec9b0; font-weight: 500; }
 .sql-boolean { color: #569cd6; font-weight: 600; }
+.sql-null { color: #569cd6; font-style: italic; font-weight: 600; }
+.sql-identifier { color: #9cdcfe; }
+.sql-quoted-id { color: #ce9178; }
 .sql-table { color: #9cdcfe; }
 .sql-alias { color: #9cdcfe; font-style: italic; }
 .sql-paren { color: #ffd700; }
 .sql-semicolon { color: #808080; }
-.sql-star { color: #d7ba7d; }
+.sql-star { color: #d7ba7d; font-weight: bold; }
 .sql-dot { color: #cccccc; }
 .sql-param { color: #9cdcfe; }
+.sql-placeholder { color: #c586c0; font-weight: 500; }
+.sql-cast { color: #808080; }
+.sql-comma { color: #808080; }
 
 /* JSON highlighting */
 .json-key { color: #9cdcfe; }
@@ -119,4 +125,103 @@
   50% {
     opacity: 0;
   }
+}
+
+/* ── Context Menu Animation ── */
+@keyframes context-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.animate-context-menu {
+  animation: context-menu-in 0.12s ease-out;
+}
+
+/* ── Smooth transitions for all interactive elements ── */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Table structure view row transitions ── */
+.structure-row {
+  transition: background-color 0.15s ease;
+}
+
+/* ── Tab transitions ── */
+.tab-transition {
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+/* ── Sidebar tree item transitions ── */
+.tree-item {
+  transition: background-color 0.1s ease, opacity 0.15s ease;
+}
+
+/* ── Tooltip animation ── */
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-tooltip {
+  animation: tooltip-in 0.15s ease-out;
+}
+
+/* ── Fade-in animation for panels ── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+/* ── Slide-in animation for sidebar ── */
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-slide-in {
+  animation: slide-in-left 0.15s ease-out;
+}
+
+/* ── Checkbox styles for table structure view ── */
+.checkbox-primary {
+  accent-color: #007fd4;
+}
+
+/* ── Better focus styles ── */
+input:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: 1px solid #007fd4;
+  outline-offset: -1px;
+}
+
+/* ── Smooth selection highlight in editor ── */
+textarea::selection {
+  background: #264f78;
+}
+
+/* ── Active line indicator in gutter ── */
+.gutter-active {
+  background: rgba(55, 55, 61, 0.5);
+  border-right: 2px solid #007fd4;
 }

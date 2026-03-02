@@ -54,12 +54,54 @@ export interface ColumnNode {
 export interface EditorTab {
   id: string;
   title: string;
-  type: "sql" | "config" | "table";
+  type: "sql" | "config" | "table" | "structure";
   icon: string;
   iconColor: string;
   isActive: boolean;
   isModified: boolean;
   content?: string;
+  /** For structure tabs: which schema/table this represents */
+  _schema?: string;
+  _tableName?: string;
+  _connId?: string;
+}
+
+// ── Table Structure (Beekeeper-style) ──
+export type StructureTab = "columns" | "indexes" | "relations" | "triggers";
+
+export interface IndexNode {
+  name: string;
+  columns: string[];
+  isUnique: boolean;
+  isPrimary: boolean;
+  type: string;
+}
+
+export interface RelationNode {
+  name: string;
+  sourceColumn: string;
+  targetSchema: string;
+  targetTable: string;
+  targetColumn: string;
+  onUpdate: string;
+  onDelete: string;
+}
+
+export interface TriggerNode {
+  name: string;
+  event: string;
+  timing: string;
+  definition: string;
+}
+
+// ── Context Menu ──
+export interface ContextMenuItem {
+  label: string;
+  icon?: string;
+  iconColor?: string;
+  action: () => void;
+  separator?: boolean;
+  danger?: boolean;
 }
 
 // ── Query Results ──

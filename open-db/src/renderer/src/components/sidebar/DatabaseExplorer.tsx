@@ -3,10 +3,10 @@
  * for the currently active database connection.
  */
 import React, { useState, useEffect, useCallback } from "react";
-import { Icon } from "@/components/ui";
+import { Icon, ContextMenu } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 import { clsx } from "clsx";
-import type { TableNode, ColumnNode } from "@/types";
+import type { TableNode, ColumnNode, ContextMenuItem } from "@/types";
 
 function dataTypeIcon(dt: string): { icon: string; color: string } {
   const t = dt.toLowerCase();
@@ -40,12 +40,16 @@ function ColumnItem({ col }: { col: ColumnNode }) {
   );
 }
 
-// ── Table item (expandable → columns) ──
+// ── Table item (expandable → columns) with right-click context menu ──
 function TableItem({ connId, table }: { connId: string; table: TableNode }) {
   const [open, setOpen] = useState(false);
   const [columns, setColumns] = useState<ColumnNode[]>([]);
   const [loading, setLoading] = useState(false);
   const addTab = useAppStore((s) => s.openTableTab);
+  const openStructureTab = useAppStore((s) => s.openStructureTab);
+  const addNewFileTab = useAppStore((s) => s.addNewFileTab);
+  const executeQuery = useAppStore((s) => s.executeQuery);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const toggle = useCallback(async () => {
     const next = !open;
@@ -63,13 +67,117 @@ function TableItem({ connId, table }: { connId: string; table: TableNode }) {
     }
   }, [open, columns.length, connId, table]);
 
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  }, []);
+
+  const contextMenuItems: ContextMenuItem[] = [
+    {
+      label: "View Data",
+      icon: "table_rows",
+      iconColor: "text-syntax-function",
+      action: () => addTab(table.schema, table.name),
+    },
+    {
+      label: "View Structure",
+      icon: "view_column",
+      iconColor: "text-syntax-decorator",
+      action: () => openStructureTab(connId, table.schema, table.name),
+    },
+    {
+      label: "Export To File",
+      icon: "download",
+      iconColor: "text-accent-blue",
+      action: () => {
+        // Open a query with COPY command hint
+        addNewFileTab(`export_${table.name}.sql`, `-- Export ${table.schema}.${table.name} to CSV\nCOPY ${table.schema}.${table.name} TO '/tmp/${table.name}.csv' WITH CSV HEADER;\n`)
+      },
+      separator: true,
+    },
+    {
+      label: "Copy Name",
+      icon: "content_copy",
+      iconColor: "text-text-secondary",
+      action: () => navigator.clipboard.writeText(`${table.schema}.${table.name}`),
+      separator: true,
+    },
+    {
+      label: "SQL: Create",
+      icon: "code",
+      iconColor: "text-syntax-keyword",
+      action: () => {
+        // Generate CREATE TABLE script from columns
+        const fetchAndGenerate = async () => {
+          try {
+            let cols = columns;
+            if (cols.length === 0) {
+              cols = await window.electronAPI.database.getColumns(connId, table.schema, table.name);
+            }
+            const colDefs = cols.map((c) => {
+              let def = `  ${c.name} ${c.dataType}`;
+              if (!c.nullable) def += ' NOT NULL';
+              if (c.defaultValue) def += ` DEFAULT ${c.defaultValue}`;
+              return def;
+            }).join(',\n');
+            const pks = cols.filter((c) => c.isPrimaryKey).map((c) => c.name);
+            const pkLine = pks.length > 0 ? `,\n  PRIMARY KEY (${pks.join(', ')})` : '';
+            const sql = `CREATE TABLE ${table.schema}.${table.name} (\n${colDefs}${pkLine}\n);\n`;
+            addNewFileTab(`create_${table.name}.sql`, sql);
+          } catch (err) {
+            console.error('Failed to generate CREATE TABLE', err);
+          }
+        };
+        fetchAndGenerate();
+      },
+      separator: true,
+    },
+    {
+      label: "Rename",
+      icon: "edit",
+      iconColor: "text-text-secondary",
+      action: () => {
+        const newName = prompt(`Rename table "${table.name}" to:`, table.name);
+        if (newName && newName !== table.name) {
+          addNewFileTab(`rename_${table.name}.sql`, `ALTER TABLE ${table.schema}.${table.name} RENAME TO ${newName};\n`);
+        }
+      },
+    },
+    {
+      label: "Drop",
+      icon: "delete",
+      danger: true,
+      action: () => {
+        addNewFileTab(`drop_${table.name}.sql`, `-- WARNING: This will permanently delete the table and all its data\nDROP TABLE IF EXISTS ${table.schema}.${table.name} CASCADE;\n`);
+      },
+    },
+    {
+      label: "Truncate",
+      icon: "delete_sweep",
+      danger: true,
+      action: () => {
+        addNewFileTab(`truncate_${table.name}.sql`, `-- WARNING: This will delete all rows from the table\nTRUNCATE TABLE ${table.schema}.${table.name};\n`);
+      },
+    },
+    {
+      label: "Duplicate",
+      icon: "content_copy",
+      iconColor: "text-text-secondary",
+      action: () => {
+        addNewFileTab(`duplicate_${table.name}.sql`, `-- Duplicate table structure and data\nCREATE TABLE ${table.schema}.${table.name}_copy AS TABLE ${table.schema}.${table.name};\n`);
+      },
+    },
+  ];
+
   const isView = table.type === "view";
 
   return (
     <div>
       <div
-        className="flex items-center gap-1.5 pl-10 pr-2 py-[2px] hover:bg-bg-surface-hover cursor-pointer select-none group/tbl"
+        className="flex items-center gap-1.5 pl-10 pr-2 py-[2px] hover:bg-bg-surface-hover cursor-pointer select-none group/tbl transition-colors"
         onClick={toggle}
+        onContextMenu={handleContextMenu}
       >
         <Icon
           name="chevron_right"
@@ -88,8 +196,15 @@ function TableItem({ connId, table }: { connId: string; table: TableNode }) {
           </span>
         )}
         <button
+          onClick={(e) => { e.stopPropagation(); openStructureTab(connId, table.schema, table.name); }}
+          className="opacity-0 group-hover/tbl:opacity-100 text-text-secondary hover:text-text-primary transition-opacity"
+          title="View structure"
+        >
+          <Icon name="view_column" size={12} />
+        </button>
+        <button
           onClick={(e) => { e.stopPropagation(); addTab(table.schema, table.name); }}
-          className="opacity-0 group-hover/tbl:opacity-100 text-text-secondary hover:text-text-primary"
+          className="opacity-0 group-hover/tbl:opacity-100 text-text-secondary hover:text-text-primary transition-opacity"
           title="Open table data"
         >
           <Icon name="open_in_new" size={12} />
@@ -104,6 +219,15 @@ function TableItem({ connId, table }: { connId: string; table: TableNode }) {
             <ColumnItem key={col.name} col={col} />
           ))}
         </div>
+      )}
+      {/* Context menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={contextMenuItems}
+          onClose={() => setContextMenu(null)}
+        />
       )}
     </div>
   );
