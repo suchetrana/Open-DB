@@ -6,7 +6,7 @@
 
 ## Quick Summary
 
-Electron desktop app (VS Code-style UI) for database management with Docker integration. Dark theme, React + Zustand frontend, PostgreSQL backend via `pg`, Docker via `dockerode`, local persistence via `sql.js` (SQLite WASM).
+Electron desktop app (VS Code-style UI) for database management with Docker integration. **Islands Dark glass theme** (inspired by [Dark Islands VS Code theme](https://github.com/bwya77/vscode-dark-islands)), React + Zustand frontend, PostgreSQL backend via `pg`, Docker via `dockerode`, local persistence via `sql.js` (SQLite WASM).
 
 **Stack:** Electron 28 + electron-vite + React 18 + Zustand + Immer + Tailwind 3 + xterm.js + TypeScript
 
@@ -232,36 +232,54 @@ App → MainLayout
 
 ---
 
-## Tailwind Custom Colors
+## Tailwind Custom Colors (Islands Dark Theme)
 
 | Token | Hex | Usage |
 |-------|-----|-------|
-| `bg-base` | `#0d0d0d` | Body/terminal bg |
-| `bg-elevated` | `#1e1e1e` | Editor bg |
-| `bg-surface` | `#252526` | Sidebar/headers |
-| `bg-surface-hover` | `#2a2d2e` | Hover state |
-| `bg-surface-active` | `#37373d` | Selected state |
-| `bg-input` | `#2d2d2d` | Input bg |
-| `border-default` | `#333333` | Borders |
-| `text-primary` | `#cccccc` | Main text |
-| `text-secondary` | `#858585` | Secondary text |
-| `text-muted` | `#6e7681` | Muted text |
-| `text-bright` | `#ffffff` | Emphasis |
-| `accent-blue` | `#007fd4` | Status bar, links |
-| `accent-button` | `#0e639c` | Button primary |
-| `syntax-keyword` | `#569cd6` | SQL keywords |
-| `syntax-function` | `#dcdcaa` | Functions |
-| `syntax-string` | `#ce9178` | Strings |
-| `syntax-number` | `#b5cea8` | Numbers |
-| `syntax-comment` | `#6a9955` | Comments |
-| `syntax-type` | `#4ec9b0` | Types |
-| `syntax-param` | `#9cdcfe` | Params/identifiers |
-| `syntax-decorator` | `#c586c0` | Decorators |
-| `status-green` | `#4ec9b0` | Connected/running |
-| `status-amber` | `#dcdcaa` | Warning |
-| `status-red` | `#f44747` | Error/stopped |
+| `bg-canvas` | `#121216` | Body/root bg (deep dark canvas) |
+| `bg-surface` | `#181a1d` | Sidebar/panels/editor bg |
+| `bg-surface-hover` | `rgba(255,255,255,0.06)` | Hover state |
+| `bg-surface-active` | `rgba(255,255,255,0.08)` | Selected state |
+| `bg-input` | `#1a1c20` | Input bg |
+| `border-default` | `#3c3f41` | Primary borders |
+| `border-subtle` | `#25262a` | Subtle borders |
+| `text-primary` | `#bcbec4` | Main text |
+| `text-secondary` | `#7a7e85` | Secondary text |
+| `text-muted` | `#6f737a` | Muted text |
+| `text-bright` | `#ffffffd9` | Emphasis |
+| `accent-blue` | `#548af7` | Links, active indicators |
+| `accent-button` | `#3574f0` | Button primary |
+| `syntax-keyword` | `#cf8e6d` | SQL keywords (warm orange) |
+| `syntax-function` | `#56a8f5` | Functions (blue) |
+| `syntax-string` | `#6aab73` | Strings (green) |
+| `syntax-number` | `#2aacb8` | Numbers (cyan) |
+| `syntax-comment` | `#7a7e85` | Comments (gray) |
+| `syntax-type` | `#c77dbb` | Types (magenta) |
+| `syntax-param` | `#bcbec4` | Params/identifiers |
+| `syntax-decorator` | `#bbb529` | Decorators (yellow) |
+| `status-green` | `#57a64a` | Connected/running |
+| `status-amber` | `#e8bf6a` | Warning |
+| `status-red` | `#f75464` | Error/stopped |
 
-**Fonts:** `font-display` → Inter, `font-mono` → JetBrains Mono
+### Glass Design System
+| Token | Value | Usage |
+|-------|-------|-------|
+| `rounded-panel` | `18px` | Floating panels |
+| `rounded-widget` | `14px` | Dropdowns/menus |
+| `rounded-input` | `10px` | Buttons/inputs |
+| `rounded-item` | `6px` | List items/tags |
+| `shadow-glass` | `0 2px 8px rgba(0,0,0,0.3)` | Panel shadow |
+| Glass border-top | `rgba(255,255,255,0.10)` | Directional light sim |
+| Glass border-left | `rgba(255,255,255,0.06)` | Directional light sim |
+| Glass border-bottom/right | `rgba(255,255,255,0.02)` | Directional light sim |
+
+### CSS Utility Classes
+- `glass-panel` — floating panel with directional glass borders + shadow + rounded-panel
+- `glass-widget` — dropdown/menu with glass borders + rounded-widget
+- `glass-input` — input field with glass borders + rounded-input
+- `glass-row` — list item with rounded-item + hover:bg-white/6
+
+**Fonts:** `font-display` → Inter, `font-mono` → IBM Plex Mono, `font-terminal` → Fira Code
 
 ---
 
@@ -335,4 +353,4 @@ npm run dev
 
 ---
 
-*Last updated: Feb 26, 2026 — Removed demo data, welcome screen, save/commit/rollback wired, create folder, database icon for SQL*
+*Last updated: Jun 2025 — Islands Dark glass theme applied across all components, glass utility classes, IBM Plex Mono + Fira Code fonts, directional light borders, pill-shaped ActivityBar, context menus with glass-widget*
