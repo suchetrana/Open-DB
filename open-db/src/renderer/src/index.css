@@ -2,22 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Scrollbar ── */
+/* ══════════════════════════════════════════════
+   Islands Dark — Glass Theme
+   Deep dark canvas with floating glass panels
+   ══════════════════════════════════════════════ */
+
+/* ── CSS Custom Properties ── */
+:root {
+  --islands-bg-canvas: #121216;
+  --islands-bg-surface: #181a1d;
+  --islands-panel-radius: 18px;
+  --islands-widget-radius: 14px;
+  --islands-input-radius: 10px;
+  --islands-item-radius: 6px;
+  --islands-panel-gap: 6px;
+  --islands-transition: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Scrollbar — pill-shaped thumbs ── */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #1e1e1e;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #424242;
+  background: rgba(60, 63, 65, 0.4);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.3s var(--islands-transition);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #4f4f4f;
+  background: rgba(80, 83, 87, 0.7);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 ::-webkit-scrollbar-corner {
-  background: #1e1e1e;
+  background: transparent;
 }
 
 /* ── Hide scrollbar utility ── */
@@ -31,138 +55,186 @@
 
 /* ── Selection ── */
 ::selection {
-  background: #264f78;
-  color: white;
+  background: #373b39;
+  color: #bcbec4;
 }
 
-/* ── SQL Syntax Highlighting (Beekeeper-style — bold & distinct) ── */
-.syntax-keyword { color: #569cd6; font-weight: bold; }
-.syntax-function { color: #dcdcaa; }
-.syntax-string { color: #ce9178; }
-.syntax-number { color: #b5cea8; }
-.syntax-comment { color: #6a9955; font-style: italic; }
-.syntax-operator { color: #d4d4d4; }
-.syntax-type { color: #4ec9b0; }
+/* ── Glass Panel Base ── */
+.glass-panel {
+  border-radius: var(--islands-panel-radius);
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  border-right: 1px solid rgba(255, 255, 255, 0.02);
+  box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  background-color: var(--islands-bg-surface);
+}
 
-/* SQL editor overlay highlighting — vivid Beekeeper-style colors */
+/* ── Glass Widget (smaller panels like dropdowns) ── */
+.glass-widget {
+  border-radius: var(--islands-widget-radius);
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  border-right: 1px solid rgba(255, 255, 255, 0.02);
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+/* ── Glass Input ── */
+.glass-input {
+  border-radius: var(--islands-input-radius);
+  border: 1px solid #3c3f41;
+  background-color: var(--islands-bg-surface);
+  transition: border-color 0.2s var(--islands-transition), box-shadow 0.2s var(--islands-transition);
+}
+.glass-input:focus {
+  border-color: #548af7;
+  box-shadow: 0 0 0 1px rgba(84, 138, 247, 0.25);
+}
+
+/* ── Glass List Row ── */
+.glass-row {
+  border-radius: var(--islands-item-radius);
+  transition: background 0.2s var(--islands-transition), box-shadow 0.2s var(--islands-transition);
+}
+.glass-row:hover {
+  background: linear-gradient(135deg, rgba(49, 50, 56, 0.3), rgba(37, 38, 44, 0.2));
+}
+.glass-row.selected {
+  background: linear-gradient(135deg, rgba(49, 50, 56, 0.7), rgba(37, 38, 44, 0.5));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* ── SQL Syntax Highlighting (Islands Dark palette) ── */
+.syntax-keyword { color: #cf8e6d; font-weight: bold; }
+.syntax-function { color: #56a8f5; }
+.syntax-string { color: #6aab73; }
+.syntax-number { color: #2aacb8; }
+.syntax-comment { color: #7a7e85; font-style: italic; }
+.syntax-operator { color: #bcbec4; }
+.syntax-type { color: #c77dbb; }
+
+/* SQL editor overlay — Islands Dark colors */
 .sql-keyword {
-  color: #569cd6;
+  color: #cf8e6d;
   font-weight: 700;
 }
 .sql-function {
-  color: #dcdcaa;
+  color: #56a8f5;
   font-weight: 500;
 }
 .sql-string {
-  color: #ce9178;
+  color: #6aab73;
 }
 .sql-number {
-  color: #b5cea8;
+  color: #2aacb8;
 }
 .sql-comment {
-  color: #6a9955;
+  color: #7a7e85;
   font-style: italic;
 }
 .sql-operator {
-  color: #d4d4d4;
+  color: #bcbec4;
 }
 .sql-type {
-  color: #4ec9b0;
+  color: #c77dbb;
   font-weight: 600;
 }
 .sql-boolean {
-  color: #569cd6;
+  color: #cf8e6d;
   font-weight: 700;
 }
 .sql-null {
-  color: #569cd6;
+  color: #cf8e6d;
   font-style: italic;
   font-weight: 700;
 }
 .sql-identifier {
-  color: #e2e2e2;
+  color: #bcbec4;
 }
 .sql-quoted-id {
-  color: #ce9178;
+  color: #6aab73;
 }
 .sql-table {
-  color: #9cdcfe;
+  color: #c77dbb;
 }
 .sql-alias {
-  color: #9cdcfe;
+  color: #bcbec4;
   font-style: italic;
 }
 .sql-paren {
-  color: #ffd700;
+  color: #cf8e6d;
   font-weight: 600;
 }
 .sql-semicolon {
-  color: #808080;
+  color: #6f737a;
 }
 .sql-star {
-  color: #d7ba7d;
+  color: #e8a33e;
   font-weight: 700;
 }
 .sql-dot {
-  color: #cccccc;
+  color: #bcbec4;
 }
 .sql-param {
-  color: #9cdcfe;
+  color: #bcbec4;
 }
 .sql-placeholder {
-  color: #c586c0;
+  color: #bbb529;
   font-weight: 600;
 }
 .sql-cast {
-  color: #d4d4d4;
+  color: #bcbec4;
   font-weight: 500;
 }
 .sql-comma {
-  color: #808080;
+  color: #6f737a;
 }
 
-/* JSON highlighting */
-.json-key { color: #9cdcfe; }
-.json-string { color: #ce9178; }
-.json-number { color: #b5cea8; }
-.json-boolean { color: #569cd6; }
-.json-null { color: #569cd6; font-style: italic; }
-.json-brace { color: #ffd700; }
-.json-bracket { color: #da70d6; }
-.json-colon { color: #cccccc; }
+/* JSON highlighting — Islands Dark */
+.json-key { color: #c77dbb; }
+.json-string { color: #6aab73; }
+.json-number { color: #2aacb8; }
+.json-boolean { color: #cf8e6d; }
+.json-null { color: #cf8e6d; font-style: italic; }
+.json-brace { color: #cf8e6d; }
+.json-bracket { color: #c77dbb; }
+.json-colon { color: #bcbec4; }
 
-/* Generic code highlighting */
-.code-keyword { color: #c586c0; font-weight: 600; }
-.code-string { color: #ce9178; }
-.code-number { color: #b5cea8; }
-.code-comment { color: #6a9955; font-style: italic; }
-.code-function { color: #dcdcaa; }
-.code-type { color: #4ec9b0; }
-.code-variable { color: #9cdcfe; }
-.code-operator { color: #d4d4d4; }
-.code-decorator { color: #c586c0; }
-.code-tag { color: #569cd6; }
-.code-attr { color: #9cdcfe; }
-.code-punctuation { color: #808080; }
+/* Generic code highlighting — Islands Dark */
+.code-keyword { color: #cf8e6d; font-weight: 600; }
+.code-string { color: #6aab73; }
+.code-number { color: #2aacb8; }
+.code-comment { color: #7a7e85; font-style: italic; }
+.code-function { color: #56a8f5; }
+.code-type { color: #c77dbb; }
+.code-variable { color: #bcbec4; }
+.code-operator { color: #bcbec4; }
+.code-decorator { color: #bbb529; }
+.code-tag { color: #cf8e6d; }
+.code-attr { color: #bababa; }
+.code-punctuation { color: #6f737a; }
 
 /* ── Animations ── */
 .pulse-dot {
-  box-shadow: 0 0 0 0 rgba(78, 201, 176, 0.7);
+  box-shadow: 0 0 0 0 rgba(115, 176, 10, 0.7);
   animation: pulse-green 2s infinite;
 }
 
 @keyframes pulse-green {
   0% {
     transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(78, 201, 176, 0.7);
+    box-shadow: 0 0 0 0 rgba(115, 176, 10, 0.7);
   }
   70% {
     transform: scale(1);
-    box-shadow: 0 0 0 6px rgba(78, 201, 176, 0);
+    box-shadow: 0 0 0 6px rgba(115, 176, 10, 0);
   }
   100% {
     transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(78, 201, 176, 0);
+    box-shadow: 0 0 0 0 rgba(115, 176, 10, 0);
   }
 }
 
@@ -170,7 +242,7 @@
   display: inline-block;
   width: 8px;
   height: 14px;
-  background-color: #a7a7a7;
+  background-color: #bcbec4;
   animation: blink 1s step-end infinite;
   vertical-align: text-bottom;
 }
@@ -196,7 +268,37 @@
   animation: context-menu-in 0.12s ease-out;
 }
 
-/* ── Smooth transitions for all interactive elements ── */
+/* ── Autocomplete IntelliSense Animation ── */
+@keyframes ac-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-ac-in {
+  animation: ac-in 0.1s ease-out;
+}
+
+/* ── Autocomplete scrollbar ── */
+.animate-ac-in ::-webkit-scrollbar {
+  width: 6px;
+}
+.animate-ac-in ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.animate-ac-in ::-webkit-scrollbar-thumb {
+  background: rgba(60, 63, 65, 0.5);
+  border-radius: 9999px;
+}
+.animate-ac-in ::-webkit-scrollbar-thumb:hover {
+  background: rgba(80, 83, 87, 0.7);
+}
+
+/* ── Smooth text rendering ── */
 * {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -204,17 +306,17 @@
 
 /* ── Table structure view row transitions ── */
 .structure-row {
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s var(--islands-transition);
 }
 
 /* ── Tab transitions ── */
 .tab-transition {
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background-color 0.2s var(--islands-transition), color 0.2s var(--islands-transition), box-shadow 0.2s var(--islands-transition);
 }
 
 /* ── Sidebar tree item transitions ── */
 .tree-item {
-  transition: background-color 0.1s ease, opacity 0.15s ease;
+  transition: background 0.2s var(--islands-transition), opacity 0.15s var(--islands-transition);
 }
 
 /* ── Tooltip animation ── */
@@ -256,26 +358,54 @@
   animation: slide-in-left 0.15s ease-out;
 }
 
-/* ── Checkbox styles for table structure view ── */
+/* ── Float-up animation for glass panels ── */
+@keyframes float-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-float-up {
+  animation: float-up 0.25s var(--islands-transition);
+}
+
+/* ── Checkbox styles ── */
 .checkbox-primary {
-  accent-color: #007fd4;
+  accent-color: #548af7;
 }
 
 /* ── Better focus styles ── */
 input:focus-visible,
 textarea:focus-visible,
 button:focus-visible {
-  outline: 1px solid #007fd4;
+  outline: 1px solid #548af7;
   outline-offset: -1px;
 }
 
-/* ── Smooth selection highlight in editor ── */
+/* ── Selection highlight in editor ── */
 textarea::selection {
-  background: #264f78;
+  background: #373b39;
 }
 
 /* ── Active line indicator in gutter ── */
 .gutter-active {
-  background: rgba(55, 55, 61, 0.5);
-  border-right: 2px solid #007fd4;
+  background: rgba(37, 38, 41, 0.8);
+  border-right: 2px solid #548af7;
+}
+
+/* ── Status bar hover brighten ── */
+.statusbar-dim {
+  transition: color 0.4s var(--islands-transition);
+}
+.statusbar-container:hover .statusbar-dim {
+  color: #9a9ea5 !important;
+}
+
+/* ── Icon glow effect (matches Islands Dark file icon glow) ── */
+.icon-glow {
+  filter: drop-shadow(0 0 2.5px currentColor);
 }

@@ -12,7 +12,7 @@ export function ResultsPanel() {
   // Minimized: show only the header bar
   if (resultsPanelMode === 'minimized') {
     return (
-      <div className="bg-bg-surface border-t border-border-default">
+      <div className="bg-[#181a1d] border-t border-[#25262a]">
         <div className="px-4 py-1.5 flex items-center justify-between">
           <span className="text-[10px] font-bold text-text-primary uppercase tracking-wider">
             Query Results
@@ -25,14 +25,14 @@ export function ResultsPanel() {
           <div className="flex gap-1">
             <button
               onClick={() => setResultsPanelMode('normal')}
-              className="text-text-secondary hover:text-text-primary p-0.5 rounded hover:bg-[#3e3e42]"
+              className="text-text-secondary hover:text-text-primary p-0.5 rounded-item hover:bg-white/6 transition-colors duration-200"
               title="Restore"
             >
               <Icon name="expand_less" size={16} />
             </button>
             <button
               onClick={() => setResultsPanelMode('maximized')}
-              className="text-text-secondary hover:text-text-primary p-0.5 rounded hover:bg-[#3e3e42]"
+              className="text-text-secondary hover:text-text-primary p-0.5 rounded-item hover:bg-white/6 transition-colors duration-200"
               title="Maximize"
             >
               <Icon name="open_in_full" size={16} />
@@ -46,7 +46,7 @@ export function ResultsPanel() {
   // Loading state
   if (isExecuting) {
     return (
-      <div className="flex-1 bg-bg-elevated flex items-center justify-center">
+      <div className="flex-1 bg-[#181a1d] flex items-center justify-center">
         <div className="flex items-center gap-3 text-text-secondary text-sm">
           <Icon name="hourglass_empty" size={20} className="animate-spin" />
           Executing query…
@@ -58,15 +58,15 @@ export function ResultsPanel() {
   // Error state
   if (queryError) {
     return (
-      <div className="flex-1 bg-bg-elevated flex flex-col overflow-hidden">
-        <div className="px-4 py-1.5 border-b border-border-default bg-bg-surface flex items-center justify-between">
+      <div className="flex-1 bg-[#181a1d] flex flex-col overflow-hidden">
+        <div className="px-4 py-1.5 border-b border-[#25262a] bg-[#181a1d] flex items-center justify-between">
           <span className="text-[10px] font-bold text-status-red uppercase tracking-wider">
             Query Error
           </span>
           <div className="flex gap-1">
             <button
               onClick={() => setResultsPanelMode('minimized')}
-              className="text-text-secondary hover:text-text-primary p-0.5 rounded hover:bg-[#3e3e42]"
+              className="text-text-secondary hover:text-text-primary p-0.5 rounded-item hover:bg-white/6 transition-colors duration-200"
               title="Minimize"
             >
               <Icon name="expand_more" size={16} />
@@ -82,7 +82,7 @@ export function ResultsPanel() {
 
   if (!queryResult) {
     return (
-      <div className="flex-1 bg-bg-elevated flex items-center justify-center">
+      <div className="flex-1 bg-[#181a1d] flex items-center justify-center">
         <div className="text-text-muted text-xs font-mono">
           Run a query to see results (Ctrl+Enter)
         </div>
@@ -91,9 +91,9 @@ export function ResultsPanel() {
   }
 
   return (
-    <div className="flex-1 bg-bg-elevated flex flex-col overflow-hidden">
+    <div className="flex-1 bg-[#181a1d] flex flex-col overflow-hidden">
       {/* Results header with minimize/maximize controls */}
-      <div className="px-4 py-1.5 border-b border-border-default bg-bg-surface flex items-center justify-between">
+      <div className="px-4 py-1.5 border-b border-[#25262a] bg-[#181a1d] flex items-center justify-between">
         <span className="text-[10px] font-bold text-text-primary uppercase tracking-wider">
           Query Results{" "}
           <span className="text-text-secondary font-normal normal-case ml-2 font-mono">
@@ -103,30 +103,30 @@ export function ResultsPanel() {
 
         <div className="flex gap-1">
           <button
-            className="text-text-secondary hover:text-text-primary p-0.5 rounded hover:bg-[#3e3e42]"
+            className="text-text-secondary hover:text-text-primary p-0.5 rounded-item hover:bg-white/6 transition-colors duration-200"
             title="Download"
           >
             <Icon name="download" size={16} />
           </button>
           <button
-            className="text-text-secondary hover:text-text-primary p-0.5 rounded hover:bg-[#3e3e42]"
+            className="text-text-secondary hover:text-text-primary p-0.5 rounded-item hover:bg-white/6 transition-colors duration-200"
             title="Filter"
           >
             <Icon name="filter_list" size={16} />
           </button>
 
-          <div className="w-[1px] h-4 bg-border-input mx-0.5" />
+          <div className="w-[1px] h-4 bg-[#25262a] mx-0.5" />
 
           <button
             onClick={() => setResultsPanelMode('minimized')}
-            className="text-text-secondary hover:text-text-primary p-0.5 rounded hover:bg-[#3e3e42]"
+            className="text-text-secondary hover:text-text-primary p-0.5 rounded-item hover:bg-white/6 transition-colors duration-200"
             title="Minimize results"
           >
             <Icon name="expand_more" size={16} />
           </button>
           <button
             onClick={() => setResultsPanelMode(resultsPanelMode === 'maximized' ? 'normal' : 'maximized')}
-            className="text-text-secondary hover:text-text-primary p-0.5 rounded hover:bg-[#3e3e42]"
+            className="text-text-secondary hover:text-text-primary p-0.5 rounded-item hover:bg-white/6 transition-colors duration-200"
             title={resultsPanelMode === 'maximized' ? "Restore" : "Maximize results"}
           >
             <Icon name={resultsPanelMode === 'maximized' ? "close_fullscreen" : "open_in_full"} size={16} />

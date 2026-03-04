@@ -29,7 +29,7 @@ function ColumnItem({ col }: { col: ColumnNode }) {
     : dataTypeIcon(col.dataType);
 
   return (
-    <div className="flex items-center gap-1.5 pl-14 pr-2 py-[2px] text-[11px] text-text-secondary hover:bg-bg-surface-hover cursor-default select-none">
+    <div className="flex items-center gap-1.5 pl-14 pr-2 py-[2px] text-[11px] text-text-secondary glass-row mx-1 cursor-default select-none" style={{ width: 'calc(100% - 8px)', paddingLeft: '3.5rem' }}>
       <Icon name={icon} size={12} className={color} />
       <span className="truncate">{col.name}</span>
       <span className="ml-auto text-[10px] text-text-muted truncate max-w-[80px]">
@@ -175,7 +175,8 @@ function TableItem({ connId, table }: { connId: string; table: TableNode }) {
   return (
     <div>
       <div
-        className="flex items-center gap-1.5 pl-10 pr-2 py-[2px] hover:bg-bg-surface-hover cursor-pointer select-none group/tbl transition-colors"
+        className="glass-row mx-1 gap-1.5 pl-10 pr-2 py-[2px] cursor-pointer select-none group/tbl transition-colors"
+        style={{ width: 'calc(100% - 8px)' }}
         onClick={toggle}
         onContextMenu={handleContextMenu}
       >
@@ -270,7 +271,8 @@ function SchemaItem({ connId, schema, dbName }: { connId: string; schema: string
   return (
     <div>
       <div
-        className="flex items-center gap-1.5 pl-6 pr-2 py-[2px] hover:bg-bg-surface-hover cursor-pointer select-none"
+        className="glass-row mx-1 gap-1.5 pl-6 pr-2 py-[2px] cursor-pointer select-none"
+        style={{ width: 'calc(100% - 8px)' }}
         onClick={toggle}
       >
         <Icon
@@ -372,11 +374,12 @@ function DatabaseItem({
     <div>
       <div
         className={clsx(
-          "flex items-center gap-1.5 pl-4 pr-2 py-[2px] cursor-pointer select-none group/db",
+          "glass-row mx-1 gap-1.5 pl-4 pr-2 py-[2px] cursor-pointer select-none group/db",
           isSelected
-            ? "hover:bg-bg-surface-hover"
-            : "hover:bg-bg-surface-hover opacity-75 hover:opacity-100"
+            ? ""
+            : "opacity-75 hover:opacity-100"
         )}
+        style={{ width: 'calc(100% - 8px)' }}
         onClick={handleClick}
       >
         <Icon
@@ -469,15 +472,13 @@ export function DatabaseExplorer() {
 
   return (
     <details className="group mt-0.5" open>
-      <summary className="flex items-center px-1 py-0.5 cursor-pointer hover:bg-bg-surface-hover select-none text-text-primary focus:outline-none focus:bg-bg-surface-active">
+      <summary className="glass-row mx-1 cursor-pointer select-none text-text-primary focus:outline-none" style={{ width: 'calc(100% - 8px)' }}>
         <Icon
           name="chevron_right"
           size={16}
           className="transition-transform group-open:rotate-90 text-text-primary"
         />
-        <span className="text-[11px] font-bold uppercase ml-0.5">
-          Databases
-        </span>
+        <span className="text-[11px] font-bold uppercase ml-0.5 tracking-[0.5px]">Databases</span>
         {activeConn && (
           <button
             onClick={(e) => {

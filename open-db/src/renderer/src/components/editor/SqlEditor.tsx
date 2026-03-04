@@ -277,13 +277,13 @@ function getCompletions(partial: string, limit = 12): { word: string; kind: stri
   return [...startsWith, ...contains].slice(0, limit)
 }
 
-/** Icon + color for autocomplete item kinds */
-function completionIcon(kind: string): { icon: string; color: string; label: string } {
+/** Icon + color for autocomplete item kinds (VS Code IntelliSense style) */
+function completionIcon(kind: string): { icon: string; color: string; bg: string; label: string } {
   switch (kind) {
-    case 'keyword': return { icon: 'code', color: '#569cd6', label: 'Keyword' }
-    case 'type': return { icon: 'data_object', color: '#4ec9b0', label: 'Type' }
-    case 'function': return { icon: 'functions', color: '#dcdcaa', label: 'Function' }
-    default: return { icon: 'text_fields', color: '#9cdcfe', label: 'Text' }
+    case 'keyword': return { icon: 'code', color: '#569cd6', bg: 'rgba(86,156,214,0.15)', label: 'Keyword' }
+    case 'type': return { icon: 'data_object', color: '#4ec9b0', bg: 'rgba(78,201,176,0.15)', label: 'Type' }
+    case 'function': return { icon: 'functions', color: '#dcdcaa', bg: 'rgba(220,220,170,0.15)', label: 'Function' }
+    default: return { icon: 'text_fields', color: '#9cdcfe', bg: 'rgba(156,220,254,0.15)', label: 'Text' }
   }
 }
 
@@ -528,11 +528,11 @@ export function SqlEditor() {
   useEffect(() => { syncScroll() }, [content, syncScroll])
 
   return (
-    <div className="flex-1 bg-bg-elevated relative flex font-mono overflow-hidden">
+    <div className="flex-1 bg-[#181a1d] relative flex font-mono overflow-hidden">
       {/* Gutter (line numbers) with active line highlight */}
       <div
         ref={gutterRef}
-        className="w-14 bg-bg-elevated border-r border-border-default flex flex-col items-end py-3 pr-3 text-[11px] select-none leading-[20px] shrink-0 overflow-hidden"
+        className="w-14 bg-[#181a1d] border-r border-[#25262a] flex flex-col items-end py-3 pr-3 text-[11px] select-none leading-[20px] shrink-0 overflow-hidden"
       >
         {Array.from({ length: lineCount + 1 }, (_, i) => (
           <div
@@ -580,57 +580,88 @@ export function SqlEditor() {
           placeholder="-- Type your SQL query here and press Ctrl+Enter to execute"
         />
 
-        {/* ── Autocomplete dropdown ── */}
+        {/* ── Autocomplete dropdown (VS Code IntelliSense style) ── */}
         {acVisible && acItems.length > 0 && (
           <div
-            ref={acRef}
-            className="absolute z-50 min-w-[260px] max-w-[360px] max-h-[240px] overflow-auto bg-[#252526] border border-[#454545] rounded-md shadow-2xl"
+            className="absolute z-50 animate-ac-in"
             style={{ top: acPos.top, left: acPos.left }}
           >
-            {acItems.map((item, i) => {
-              const { icon, color, label } = completionIcon(item.kind)
-              const typed = acWordRef.current.word
-              const upper = typed.toUpperCase()
-              const wordDisplay = typed === typed.toLowerCase() ? item.word.toLowerCase() : item.word
-              // Highlight the matched portion
-              const matchIdx = wordDisplay.toUpperCase().indexOf(upper)
-              return (
-                <div
-                  key={item.word}
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    acceptCompletion(item)
-                  }}
-                  onMouseEnter={() => setAcIndex(i)}
-                  className={clsx(
-                    'flex items-center gap-2 px-2.5 py-[5px] cursor-pointer text-[12px] transition-colors',
-                    i === acIndex ? 'bg-[#04395e]' : 'hover:bg-[#2a2d2e]'
-                  )}
-                >
-                  {/* Kind icon */}
-                  <span
-                    className="material-symbols-outlined select-none shrink-0"
-                    style={{ fontSize: 14, color }}
-                  >
-                    {icon}
-                  </span>
-                  {/* Word with match highlight */}
-                  <span className="flex-1 font-mono text-[12px] text-[#cccccc] truncate">
-                    {matchIdx >= 0 ? (
-                      <>
-                        <span>{wordDisplay.slice(0, matchIdx)}</span>
-                        <span className="text-[#18a3ff] font-semibold">{wordDisplay.slice(matchIdx, matchIdx + typed.length)}</span>
-                        <span>{wordDisplay.slice(matchIdx + typed.length)}</span>
-                      </>
-                    ) : (
-                      wordDisplay
+            {/* Main suggestion list */}
+            <div
+              ref={acRef}
+              className="min-w-[300px] max-w-[420px] max-h-[224px] overflow-y-auto overflow-x-hidden glass-widget"
+            >
+              {acItems.map((item, i) => {
+                const { icon, color, bg, label } = completionIcon(item.kind)
+                const typed = acWordRef.current.word
+                const upper = typed.toUpperCase()
+                const wordDisplay = typed === typed.toLowerCase() ? item.word.toLowerCase() : item.word
+                const matchIdx = wordDisplay.toUpperCase().indexOf(upper)
+                return (
+                  <div
+                    key={item.word}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      acceptCompletion(item)
+                    }}
+                    onMouseEnter={() => setAcIndex(i)}
+                    className={clsx(
+                      'flex items-center gap-2 px-2 py-[3px] cursor-pointer text-[13px] leading-[22px] border-l-2 transition-colors duration-75',
+                      i === acIndex
+                        ? 'bg-[#1a2a3e] border-l-accent-blue'
+                        : 'border-l-transparent hover:bg-white/6'
                     )}
-                  </span>
-                  {/* Kind label */}
-                  <span className="text-[10px] text-[#808080] shrink-0">{label}</span>
-                </div>
-              )
-            })}
+                  >
+                    {/* Kind icon badge */}
+                    <span
+                      className="flex items-center justify-center w-[18px] h-[18px] rounded-[3px] shrink-0"
+                      style={{ backgroundColor: bg }}
+                    >
+                      <span
+                        className="material-symbols-outlined select-none"
+                        style={{ fontSize: 13, color, fontVariationSettings: "'FILL' 0, 'wght' 500" }}
+                      >
+                        {icon}
+                      </span>
+                    </span>
+                    {/* Word with match highlight */}
+                    <span className="flex-1 font-mono text-[13px] text-[#d4d4d4] truncate">
+                      {matchIdx >= 0 ? (
+                        <>
+                          <span className="text-[#d4d4d4]">{wordDisplay.slice(0, matchIdx)}</span>
+                          <span className="text-[#18a3ff] font-medium">{wordDisplay.slice(matchIdx, matchIdx + typed.length)}</span>
+                          <span className="text-[#d4d4d4]">{wordDisplay.slice(matchIdx + typed.length)}</span>
+                        </>
+                      ) : (
+                        wordDisplay
+                      )}
+                    </span>
+                    {/* Kind label badge */}
+                    <span
+                      className="text-[10px] px-1.5 py-[1px] rounded font-medium shrink-0 uppercase tracking-wide"
+                      style={{ color, backgroundColor: bg }}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+            {/* Footer with keyboard shortcuts */}
+            <div className="flex items-center gap-3 px-2.5 py-[3px] bg-[#181a1d] border border-t-0 border-[#25262a] rounded-b text-[10px] text-[#6e7681]">
+              <span className="flex items-center gap-1">
+                <kbd className="px-1 py-[0.5px] rounded bg-[#2d2d2d] border border-[#3e3e3e] text-[9px] font-mono text-[#858585]">↑↓</kbd>
+                navigate
+              </span>
+              <span className="flex items-center gap-1">
+                <kbd className="px-1 py-[0.5px] rounded bg-[#2d2d2d] border border-[#3e3e3e] text-[9px] font-mono text-[#858585]">Tab</kbd>
+                accept
+              </span>
+              <span className="flex items-center gap-1">
+                <kbd className="px-1 py-[0.5px] rounded bg-[#2d2d2d] border border-[#3e3e3e] text-[9px] font-mono text-[#858585]">Esc</kbd>
+                dismiss
+              </span>
+            </div>
           </div>
         )}
       </div>

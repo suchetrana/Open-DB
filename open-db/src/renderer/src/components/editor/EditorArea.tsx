@@ -13,9 +13,9 @@ function WelcomeScreen() {
   const addNewFileTab = useAppStore((s) => s.addNewFileTab);
 
   return (
-    <div className="flex-1 flex items-center justify-center bg-bg-elevated">
+    <div className="flex-1 flex items-center justify-center bg-[#181a1d]">
       <div className="text-center max-w-md">
-        <Icon name="database" size={64} className="mx-auto text-text-muted opacity-30 mb-6" />
+        <Icon name="database" size={64} className="mx-auto text-text-muted opacity-20 mb-6" />
         <h2 className="text-lg font-display text-text-primary mb-1">OpenDB Studio</h2>
         <p className="text-[12px] text-text-secondary mb-8">
           Database management made simple
@@ -24,21 +24,21 @@ function WelcomeScreen() {
         <div className="flex flex-col gap-3 items-center">
           <button
             onClick={() => addNewFileTab("untitled.sql", "-- Write your SQL here\n")}
-            className="flex items-center gap-2 w-56 px-4 py-2 bg-accent-button hover:bg-accent-button-hover text-white text-[12px] font-medium rounded transition-colors"
+            className="flex items-center gap-2 w-56 px-4 py-2.5 bg-accent-button hover:bg-accent-button-hover text-white text-[12px] font-medium rounded-input transition-all duration-200 shadow-glass"
           >
             <Icon name="database" size={16} />
             New SQL File
           </button>
           <button
             onClick={openFolder}
-            className="flex items-center gap-2 w-56 px-4 py-2 border border-border-default text-text-primary hover:bg-bg-surface-hover text-[12px] font-medium rounded transition-colors"
+            className="flex items-center gap-2 w-56 px-4 py-2.5 border border-[#3c3f41] text-text-primary hover:bg-bg-surface-hover text-[12px] font-medium rounded-input transition-all duration-200"
           >
             <Icon name="folder_open" size={16} />
             Open Folder
           </button>
           <button
             onClick={openFileDialog}
-            className="flex items-center gap-2 w-56 px-4 py-2 border border-border-default text-text-secondary hover:text-text-primary hover:bg-bg-surface-hover text-[12px] rounded transition-colors"
+            className="flex items-center gap-2 w-56 px-4 py-2.5 border border-[#3c3f41] text-text-secondary hover:text-text-primary hover:bg-bg-surface-hover text-[12px] rounded-input transition-all duration-200"
           >
             <Icon name="note_add" size={16} />
             Open File

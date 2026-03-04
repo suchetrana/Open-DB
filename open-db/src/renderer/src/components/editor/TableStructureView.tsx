@@ -1,5 +1,5 @@
-/**
- * TableStructureView — Beekeeper Studio-style table structure viewer
+﻿/**
+ * TableStructureView â€” Beekeeper Studio-style table structure viewer
  *
  * Shows Columns / Indexes / Relations / Triggers tabs for a table.
  * Opens as a dedicated editor tab.
@@ -29,7 +29,7 @@ function dataTypeIcon(dt: string): { icon: string; color: string } {
   return { icon: 'abc', color: 'text-syntax-keyword' }
 }
 
-// ── Columns Tab ──
+// â”€â”€ Columns Tab â”€â”€
 function ColumnsView({ columns, loading, onRefresh }: { columns: ColumnNode[]; loading: boolean; onRefresh: () => void }) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -46,7 +46,7 @@ function ColumnsView({ columns, loading, onRefresh }: { columns: ColumnNode[]; l
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-text-muted text-xs">
           <Icon name="hourglass_empty" size={16} className="animate-spin mr-2" />
-          Loading columns…
+          Loading columnsâ€¦
         </div>
       ) : columns.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-text-muted text-xs">
@@ -55,8 +55,8 @@ function ColumnsView({ columns, loading, onRefresh }: { columns: ColumnNode[]; l
       ) : (
         <div className="flex-1 overflow-auto">
           <table className="w-full text-[12px]">
-            <thead className="sticky top-0 bg-bg-surface z-10">
-              <tr className="border-b border-border-default">
+            <thead className="sticky top-0 bg-[#1a1c20] z-10">
+              <tr className="border-b border-[#25262a]">
                 <th className="text-left px-6 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider">Name</th>
                 <th className="text-left px-4 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider">Type</th>
                 <th className="text-center px-4 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider w-20">Nullable</th>
@@ -75,8 +75,8 @@ function ColumnsView({ columns, loading, onRefresh }: { columns: ColumnNode[]; l
                   <tr
                     key={col.name}
                     className={clsx(
-                      'border-b border-border-default/50 hover:bg-bg-surface-hover transition-colors group',
-                      i % 2 === 0 ? 'bg-bg-elevated' : 'bg-bg-elevated/50'
+                      'border-b border-[#25262a]/50 hover:bg-white/4 transition-colors group',
+                      i % 2 === 0 ? 'bg-[#181a1d]' : 'bg-[#181a1d]/50'
                     )}
                   >
                     <td className="px-6 py-2.5">
@@ -92,7 +92,7 @@ function ColumnsView({ columns, loading, onRefresh }: { columns: ColumnNode[]; l
                       <div className="flex justify-center">
                         <div className={clsx(
                           'w-4 h-4 rounded-sm flex items-center justify-center',
-                          col.nullable ? 'bg-accent-blue/20 border border-accent-blue' : 'border border-border-default bg-bg-input'
+                          col.nullable ? 'bg-accent-blue/20 border border-accent-blue' : 'border border-[#25262a] bg-bg-input'
                         )}>
                           {col.nullable && <Icon name="check" size={12} className="text-accent-blue" />}
                         </div>
@@ -113,7 +113,7 @@ function ColumnsView({ columns, loading, onRefresh }: { columns: ColumnNode[]; l
                             <Icon name="check" size={12} className="text-syntax-function" />
                           </div>
                         ) : (
-                          <div className="w-4 h-4 rounded-sm border border-border-default bg-bg-input" />
+                          <div className="w-4 h-4 rounded-sm border border-[#25262a] bg-bg-input" />
                         )}
                       </div>
                     </td>
@@ -133,7 +133,7 @@ function ColumnsView({ columns, loading, onRefresh }: { columns: ColumnNode[]; l
   )
 }
 
-// ── Indexes Tab ──
+// â”€â”€ Indexes Tab â”€â”€
 function IndexesView({ indexes, loading }: { indexes: IndexNode[]; loading: boolean }) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -143,7 +143,7 @@ function IndexesView({ indexes, loading }: { indexes: IndexNode[]; loading: bool
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-text-muted text-xs">
           <Icon name="hourglass_empty" size={16} className="animate-spin mr-2" />
-          Loading indexes…
+          Loading indexesâ€¦
         </div>
       ) : indexes.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-text-muted text-xs">
@@ -152,8 +152,8 @@ function IndexesView({ indexes, loading }: { indexes: IndexNode[]; loading: bool
       ) : (
         <div className="flex-1 overflow-auto">
           <table className="w-full text-[12px]">
-            <thead className="sticky top-0 bg-bg-surface z-10">
-              <tr className="border-b border-border-default">
+            <thead className="sticky top-0 bg-[#1a1c20] z-10">
+              <tr className="border-b border-[#25262a]">
                 <th className="text-left px-6 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider">Name</th>
                 <th className="text-left px-4 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider">Columns</th>
                 <th className="text-center px-4 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider w-20">Unique</th>
@@ -163,7 +163,7 @@ function IndexesView({ indexes, loading }: { indexes: IndexNode[]; loading: bool
             </thead>
             <tbody>
               {indexes.map((idx, i) => (
-                <tr key={idx.name} className={clsx('border-b border-border-default/50 hover:bg-bg-surface-hover transition-colors', i % 2 === 0 ? 'bg-bg-elevated' : 'bg-bg-elevated/50')}>
+                <tr key={idx.name} className={clsx('border-b border-[#25262a]/50 hover:bg-white/4 transition-colors', i % 2 === 0 ? 'bg-[#181a1d]' : 'bg-[#181a1d]/50')}>
                   <td className="px-6 py-2.5">
                     <div className="flex items-center gap-2">
                       <Icon name={idx.isPrimary ? 'key' : 'sort'} size={14} className={idx.isPrimary ? 'text-syntax-function' : 'text-accent-blue'} />
@@ -173,7 +173,7 @@ function IndexesView({ indexes, loading }: { indexes: IndexNode[]; loading: bool
                   <td className="px-4 py-2.5">
                     <div className="flex flex-wrap gap-1">
                       {idx.columns.map((col) => (
-                        <span key={col} className="px-1.5 py-0.5 bg-bg-surface rounded text-[10px] text-syntax-param font-mono">{col}</span>
+                        <span key={col} className="px-1.5 py-0.5 bg-[#1a1c20] rounded text-[10px] text-syntax-param font-mono">{col}</span>
                       ))}
                     </div>
                   </td>
@@ -196,7 +196,7 @@ function IndexesView({ indexes, loading }: { indexes: IndexNode[]; loading: bool
   )
 }
 
-// ── Relations Tab ──
+// â”€â”€ Relations Tab â”€â”€
 function RelationsView({ relations, loading }: { relations: RelationNode[]; loading: boolean }) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -206,7 +206,7 @@ function RelationsView({ relations, loading }: { relations: RelationNode[]; load
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-text-muted text-xs">
           <Icon name="hourglass_empty" size={16} className="animate-spin mr-2" />
-          Loading relations…
+          Loading relationsâ€¦
         </div>
       ) : relations.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-text-muted text-xs">
@@ -215,8 +215,8 @@ function RelationsView({ relations, loading }: { relations: RelationNode[]; load
       ) : (
         <div className="flex-1 overflow-auto">
           <table className="w-full text-[12px]">
-            <thead className="sticky top-0 bg-bg-surface z-10">
-              <tr className="border-b border-border-default">
+            <thead className="sticky top-0 bg-[#1a1c20] z-10">
+              <tr className="border-b border-[#25262a]">
                 <th className="text-left px-6 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider">Constraint</th>
                 <th className="text-left px-4 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider">Column</th>
                 <th className="text-left px-4 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider">References</th>
@@ -226,7 +226,7 @@ function RelationsView({ relations, loading }: { relations: RelationNode[]; load
             </thead>
             <tbody>
               {relations.map((rel, i) => (
-                <tr key={rel.name} className={clsx('border-b border-border-default/50 hover:bg-bg-surface-hover transition-colors', i % 2 === 0 ? 'bg-bg-elevated' : 'bg-bg-elevated/50')}>
+                <tr key={rel.name} className={clsx('border-b border-[#25262a]/50 hover:bg-white/4 transition-colors', i % 2 === 0 ? 'bg-[#181a1d]' : 'bg-[#181a1d]/50')}>
                   <td className="px-6 py-2.5">
                     <div className="flex items-center gap-2">
                       <Icon name="link" size={14} className="text-syntax-decorator" />
@@ -257,7 +257,7 @@ function RelationsView({ relations, loading }: { relations: RelationNode[]; load
   )
 }
 
-// ── Triggers Tab ──
+// â”€â”€ Triggers Tab â”€â”€
 function TriggersView({ triggers, loading }: { triggers: TriggerNode[]; loading: boolean }) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -267,7 +267,7 @@ function TriggersView({ triggers, loading }: { triggers: TriggerNode[]; loading:
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-text-muted text-xs">
           <Icon name="hourglass_empty" size={16} className="animate-spin mr-2" />
-          Loading triggers…
+          Loading triggersâ€¦
         </div>
       ) : triggers.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-text-muted text-xs">
@@ -276,8 +276,8 @@ function TriggersView({ triggers, loading }: { triggers: TriggerNode[]; loading:
       ) : (
         <div className="flex-1 overflow-auto">
           <table className="w-full text-[12px]">
-            <thead className="sticky top-0 bg-bg-surface z-10">
-              <tr className="border-b border-border-default">
+            <thead className="sticky top-0 bg-[#1a1c20] z-10">
+              <tr className="border-b border-[#25262a]">
                 <th className="text-left px-6 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider">Name</th>
                 <th className="text-left px-4 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider">Event</th>
                 <th className="text-left px-4 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider">Timing</th>
@@ -286,7 +286,7 @@ function TriggersView({ triggers, loading }: { triggers: TriggerNode[]; loading:
             </thead>
             <tbody>
               {triggers.map((trig, i) => (
-                <tr key={trig.name} className={clsx('border-b border-border-default/50 hover:bg-bg-surface-hover transition-colors', i % 2 === 0 ? 'bg-bg-elevated' : 'bg-bg-elevated/50')}>
+                <tr key={trig.name} className={clsx('border-b border-[#25262a]/50 hover:bg-white/4 transition-colors', i % 2 === 0 ? 'bg-[#181a1d]' : 'bg-[#181a1d]/50')}>
                   <td className="px-6 py-2.5">
                     <div className="flex items-center gap-2">
                       <Icon name="bolt" size={14} className="text-status-amber" />
@@ -312,7 +312,7 @@ function TriggersView({ triggers, loading }: { triggers: TriggerNode[]; loading:
   )
 }
 
-// ── Main Structure View ──
+// â”€â”€ Main Structure View â”€â”€
 export function TableStructureView({ connId, schema, tableName }: TableStructureViewProps) {
   const [activeTab, setActiveTab] = useState<StructureTab>('columns')
   const [columns, setColumns] = useState<ColumnNode[]>([])
@@ -438,9 +438,9 @@ export function TableStructureView({ connId, schema, tableName }: TableStructure
   ]
 
   return (
-    <div className="flex-1 flex flex-col bg-bg-elevated overflow-hidden">
+    <div className="flex-1 flex flex-col bg-[#181a1d] overflow-hidden">
       {/* Tab bar (Beekeeper-style) */}
-      <div className="flex items-center border-b border-border-default bg-bg-surface">
+      <div className="flex items-center border-b border-[#25262a] bg-[#1a1c20]">
         {tabs.map((tab) => (
           <button
             key={tab.id}

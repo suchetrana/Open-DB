@@ -53,7 +53,7 @@ export function EditorToolbar() {
   };
 
   return (
-    <div className="h-9 flex items-center px-4 bg-bg-elevated border-b border-border-default gap-4 shadow-sm z-10">
+    <div className="h-9 flex items-center px-4 bg-[#181a1d] border-b border-[#25262a] gap-4 z-10">
       {/* Connection + Database breadcrumb */}
       <div className="flex items-center text-[11px] font-mono text-text-secondary gap-1">
         <Icon
@@ -85,8 +85,8 @@ export function EditorToolbar() {
               </button>
 
               {dbDropdownOpen && availableDatabases.length > 0 && (
-                <div className="absolute top-full left-0 mt-1 bg-bg-surface border border-border-default rounded shadow-xl z-50 min-w-[180px] max-h-[240px] overflow-auto">
-                  <div className="px-2 py-1 text-[10px] text-text-muted uppercase tracking-wider border-b border-border-default">
+                <div className="absolute top-full left-0 mt-1 glass-widget z-50 min-w-[180px] max-h-[240px] overflow-auto">
+                  <div className="px-2 py-1 text-[10px] text-text-muted uppercase tracking-wider border-b border-[#25262a]">
                     Databases ({availableDatabases.length})
                   </div>
                   {availableDatabases.map((db) => (
@@ -94,9 +94,9 @@ export function EditorToolbar() {
                       key={db}
                       onClick={() => handleSwitchDb(db)}
                       className={clsx(
-                        "flex items-center gap-2 w-full px-3 py-1.5 text-[11px] text-left hover:bg-bg-surface-hover transition-colors",
+                        "flex items-center gap-2 w-full px-3 py-1.5 text-[11px] text-left hover:bg-white/6 transition-colors duration-200 rounded-item",
                         db === selectedDatabase
-                          ? "text-accent-blue font-semibold bg-bg-surface-active"
+                          ? "text-accent-blue font-semibold bg-white/8"
                           : "text-text-primary"
                       )}
                     >
@@ -118,13 +118,13 @@ export function EditorToolbar() {
       {/* Action buttons */}
       <div className="ml-auto flex items-center gap-2">
         {/* Commit / Rollback group */}
-        <div className="flex items-center bg-bg-input rounded border border-border-input overflow-hidden">
+        <div className="flex items-center bg-[#1a1c20] rounded-input border border-[#25262a] overflow-hidden">
           <button
             onClick={() => commitTransaction()}
             disabled={!activeConnectionId || isExecuting}
             className={clsx(
-              "flex items-center gap-1.5 px-3 py-0.5 text-text-primary text-[11px] font-medium transition-colors border-r border-border-input",
-              activeConnectionId && !isExecuting ? "hover:bg-[#3e3e42]" : "opacity-50 cursor-not-allowed"
+              "flex items-center gap-1.5 px-3 py-0.5 text-text-primary text-[11px] font-medium transition-colors duration-200 border-r border-[#25262a]",
+              activeConnectionId && !isExecuting ? "hover:bg-white/6" : "opacity-50 cursor-not-allowed"
             )}
             title="Commit transaction (sends COMMIT to the active connection)"
           >
@@ -135,8 +135,8 @@ export function EditorToolbar() {
             onClick={() => rollbackTransaction()}
             disabled={!activeConnectionId || isExecuting}
             className={clsx(
-              "flex items-center gap-1.5 px-3 py-0.5 text-text-primary text-[11px] font-medium transition-colors",
-              activeConnectionId && !isExecuting ? "hover:bg-[#3e3e42]" : "opacity-50 cursor-not-allowed"
+              "flex items-center gap-1.5 px-3 py-0.5 text-text-primary text-[11px] font-medium transition-colors duration-200",
+              activeConnectionId && !isExecuting ? "hover:bg-white/6" : "opacity-50 cursor-not-allowed"
             )}
             title="Rollback transaction (sends ROLLBACK to the active connection)"
           >
@@ -145,14 +145,14 @@ export function EditorToolbar() {
           </button>
         </div>
 
-        <div className="w-[1px] h-4 bg-border-input mx-1" />
+        <div className="w-[1px] h-4 bg-[#25262a] mx-1" />
 
         {/* Run button */}
         <button
           onClick={() => executeQuery(selectedText ?? undefined)}
           disabled={isExecuting}
           className={clsx(
-            "flex items-center gap-1.5 px-3 py-0.5 text-white text-[11px] font-medium rounded-sm transition-colors shadow-sm",
+            "flex items-center gap-1.5 px-3 py-0.5 text-white text-[11px] font-medium rounded-input transition-all duration-200 shadow-glass",
             isExecuting
               ? "bg-bg-input text-text-muted cursor-wait"
               : "bg-accent-button hover:bg-accent-button-hover"
@@ -166,7 +166,7 @@ export function EditorToolbar() {
         {/* Save button */}
         <button
           onClick={() => saveCurrentFile()}
-          className="flex items-center gap-1.5 px-3 py-0.5 bg-bg-input hover:bg-[#3e3e42] text-text-primary text-[11px] font-medium rounded-sm transition-colors border border-border-input"
+          className="flex items-center gap-1.5 px-3 py-0.5 bg-[#1a1c20] hover:bg-white/6 text-text-primary text-[11px] font-medium rounded-input transition-all duration-200 border border-[#25262a]"
           title="Save file (Ctrl+S)"
         >
           <Icon name="save" size={14} />
@@ -174,7 +174,7 @@ export function EditorToolbar() {
         </button>
 
         {/* More */}
-        <button className="p-0.5 text-text-secondary hover:text-text-primary rounded hover:bg-[#3e3e42]">
+        <button className="p-0.5 text-text-secondary hover:text-text-primary rounded-item hover:bg-white/6 transition-colors duration-200">
           <Icon name="more_horiz" size={18} />
         </button>
       </div>

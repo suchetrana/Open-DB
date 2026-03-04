@@ -18,7 +18,7 @@ const VIEW_TITLES: Record<SidebarView, string> = {
 function SearchView() {
   return (
     <div className="px-3 py-2 flex flex-col gap-2">
-      <div className="flex items-center gap-1 bg-bg-input border border-border-default rounded px-2 py-1">
+      <div className="flex items-center gap-1 glass-input bg-bg-input px-2 py-1.5">
         <Icon name="search" size={14} className="text-text-muted shrink-0" />
         <input
           type="text"
@@ -27,17 +27,17 @@ function SearchView() {
         />
       </div>
       <div className="flex gap-1">
-        <button className="p-0.5 text-text-secondary hover:text-text-primary rounded hover:bg-bg-surface-hover" title="Match case">
+        <button className="p-0.5 text-text-secondary hover:text-text-primary rounded-item hover:bg-bg-surface-hover transition-colors duration-200" title="Match case">
           <Icon name="match_case" size={14} />
         </button>
-        <button className="p-0.5 text-text-secondary hover:text-text-primary rounded hover:bg-bg-surface-hover" title="Match whole word">
+        <button className="p-0.5 text-text-secondary hover:text-text-primary rounded-item hover:bg-bg-surface-hover transition-colors duration-200" title="Match whole word">
           <Icon name="match_word" size={14} />
         </button>
-        <button className="p-0.5 text-text-secondary hover:text-text-primary rounded hover:bg-bg-surface-hover" title="Use regex">
+        <button className="p-0.5 text-text-secondary hover:text-text-primary rounded-item hover:bg-bg-surface-hover transition-colors duration-200" title="Use regex">
           <Icon name="regular_expression" size={14} />
         </button>
       </div>
-      <div className="flex items-center gap-1 bg-bg-input border border-border-default rounded px-2 py-1">
+      <div className="flex items-center gap-1 glass-input bg-bg-input px-2 py-1.5">
         <input
           type="text"
           placeholder="Replace..."
@@ -63,15 +63,15 @@ function RunnerView() {
     <div className="px-3 py-2 flex flex-col gap-2">
       <p className="text-[10px] text-text-muted uppercase tracking-wider font-bold mb-1">Query Runner</p>
       <div className="flex flex-col gap-1.5">
-        <button className="flex items-center gap-2 px-2 py-1.5 text-[11px] text-text-primary hover:bg-bg-surface-hover rounded transition-colors">
+        <button className="flex items-center gap-2 px-2 py-1.5 text-[11px] text-text-primary glass-row rounded-item transition-all duration-200">
           <Icon name="play_arrow" size={14} className="text-status-green" />
           Run Current Query
         </button>
-        <button className="flex items-center gap-2 px-2 py-1.5 text-[11px] text-text-primary hover:bg-bg-surface-hover rounded transition-colors">
+        <button className="flex items-center gap-2 px-2 py-1.5 text-[11px] text-text-primary glass-row rounded-item transition-all duration-200">
           <Icon name="history" size={14} className="text-syntax-function" />
           Query History
         </button>
-        <button className="flex items-center gap-2 px-2 py-1.5 text-[11px] text-text-primary hover:bg-bg-surface-hover rounded transition-colors">
+        <button className="flex items-center gap-2 px-2 py-1.5 text-[11px] text-text-primary glass-row rounded-item transition-all duration-200">
           <Icon name="bookmark" size={14} className="text-syntax-decorator" />
           Saved Queries
         </button>
@@ -84,7 +84,7 @@ function RunnerView() {
 function ExtensionsView() {
   return (
     <div className="px-3 py-2 flex flex-col gap-2">
-      <div className="flex items-center gap-1 bg-bg-input border border-border-default rounded px-2 py-1">
+      <div className="flex items-center gap-1 glass-input bg-bg-input px-2 py-1.5">
         <Icon name="search" size={14} className="text-text-muted shrink-0" />
         <input
           type="text"
@@ -94,15 +94,15 @@ function ExtensionsView() {
       </div>
       <p className="text-[10px] text-text-muted uppercase tracking-wider font-bold mt-2">Installed</p>
       <div className="text-[11px] text-text-secondary px-1">
-        <div className="flex items-center gap-2 py-1.5 hover:bg-bg-surface-hover rounded px-1 cursor-pointer">
-          <Icon name="extension" size={16} className="text-syntax-keyword" />
+        <div className="flex items-center gap-2 py-1.5 glass-row rounded-item px-1 cursor-pointer mx-1" style={{ width: 'calc(100% - 8px)' }}>
+          <Icon name="extension" size={16} className="text-syntax-keyword icon-glow" />
           <div>
             <div className="text-text-primary font-medium">PostgreSQL</div>
             <div className="text-[10px] text-text-muted">Built-in query support</div>
           </div>
         </div>
-        <div className="flex items-center gap-2 py-1.5 hover:bg-bg-surface-hover rounded px-1 cursor-pointer">
-          <Icon name="extension" size={16} className="text-status-green" />
+        <div className="flex items-center gap-2 py-1.5 glass-row rounded-item px-1 cursor-pointer mx-1" style={{ width: 'calc(100% - 8px)' }}>
+          <Icon name="extension" size={16} className="text-status-green icon-glow" />
           <div>
             <div className="text-text-primary font-medium">Docker</div>
             <div className="text-[10px] text-text-muted">Container management</div>
@@ -120,9 +120,9 @@ export function Sidebar() {
   if (!sidebarOpen) return null;
 
   return (
-    <div className="w-full h-full bg-bg-surface border-r border-bg-elevated flex flex-col overflow-y-auto">
+    <div className="w-full h-full bg-[#181a1d] flex flex-col overflow-y-auto">
       {/* Section title */}
-      <div className="h-8 flex items-center px-4 text-[10px] font-semibold tracking-wider text-[#bbbbbb] uppercase">
+      <div className="h-9 flex items-center px-5 text-[10px] font-bold tracking-[1px] text-text-primary uppercase">
         {VIEW_TITLES[activeSidebarView]}
       </div>
 

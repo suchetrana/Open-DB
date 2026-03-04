@@ -83,10 +83,10 @@ function CreateContainerForm({ onClose }: { onClose: () => void }) {
   };
 
   const inputCls =
-    "w-full bg-bg-input border border-border-input rounded px-2 py-1 text-xs text-text-primary outline-none focus:border-accent-blue";
+    "w-full rounded-item bg-bg-input border border-[#3c3f41] px-2 py-1 text-xs text-text-primary outline-none focus:border-accent-blue transition-colors duration-200";
 
   return (
-    <div className="px-3 py-2 text-xs space-y-2 bg-bg-surface border-t border-border-default">
+    <div className="px-3 py-2 text-xs space-y-2 bg-[#181a1d] border-t border-[#25262a]">
       <div className="font-semibold text-text-primary text-[11px]">Create Container</div>
       <select
         className={inputCls}
@@ -107,13 +107,13 @@ function CreateContainerForm({ onClose }: { onClose: () => void }) {
         <button
           onClick={handleCreate}
           disabled={creating}
-          className="flex-1 bg-accent-button hover:bg-accent-button-hover text-white text-[11px] font-medium py-1 rounded-sm disabled:opacity-50"
+          className="flex-1 rounded-input bg-accent-button hover:bg-accent-button-hover text-white text-[11px] font-medium py-1.5 disabled:opacity-50 transition-all duration-200 shadow-glass"
         >
           {creating ? "Creating…" : "Create & Start"}
         </button>
         <button
           onClick={onClose}
-          className="flex-1 bg-bg-input hover:bg-[#3e3e42] text-text-primary text-[11px] font-medium py-1 rounded-sm border border-border-input"
+          className="flex-1 rounded-input bg-bg-input hover:bg-bg-surface-hover text-text-primary text-[11px] font-medium py-1.5 border border-[#3c3f41] transition-all duration-200"
         >
           Cancel
         </button>
@@ -189,13 +189,13 @@ export function DockerContainers() {
 
   return (
     <details className="group mt-0.5" open>
-      <summary className="flex items-center px-1 py-0.5 cursor-pointer hover:bg-bg-surface-hover select-none text-text-primary focus:outline-none focus:bg-bg-surface-active">
+      <summary className="glass-row mx-1 cursor-pointer select-none text-text-primary focus:outline-none" style={{ width: 'calc(100% - 8px)' }}>
         <Icon
           name="chevron_right"
           size={16}
           className="transition-transform group-open:rotate-90 text-text-primary"
         />
-        <span className="text-[11px] font-bold uppercase ml-0.5">
+        <span className="text-[11px] font-bold uppercase ml-0.5 tracking-[0.5px]">
           Docker Containers
         </span>
         {dockerAvailable && (
@@ -257,7 +257,8 @@ export function DockerContainers() {
         {containers.map((c) => (
           <div
             key={c.id}
-            className="flex items-center gap-2 px-4 py-[3px] hover:bg-bg-surface-hover text-text-primary cursor-pointer group/item"
+            className="glass-row mx-1 gap-2 px-4 py-[3px] text-text-primary cursor-pointer group/item"
+            style={{ width: 'calc(100% - 8px)' }}
           >
             <StatusDot status={c.status} />
             <span

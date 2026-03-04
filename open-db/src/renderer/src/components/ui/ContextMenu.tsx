@@ -50,13 +50,13 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   return (
     <div
       ref={menuRef}
-      className="fixed z-[9999] min-w-[180px] bg-bg-surface border border-border-default rounded-md shadow-2xl py-1 animate-context-menu"
+      className="fixed z-[9999] min-w-[180px] glass-widget py-1 animate-context-menu"
       style={{ left: x, top: y }}
     >
       {items.map((item, i) => (
         <div key={i}>
           {item.separator && i > 0 && (
-            <div className="h-px bg-border-default mx-2 my-1" />
+            <div className="h-px bg-[#25262a] mx-2 my-1" />
           )}
           <button
             onClick={() => {
@@ -64,11 +64,12 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
               onClose()
             }}
             className={clsx(
-              'flex items-center gap-2.5 w-full px-3 py-1.5 text-[11px] text-left transition-colors',
+              'flex items-center gap-2.5 w-full px-3 py-1.5 text-[11px] text-left transition-colors duration-200 rounded-item mx-1',
               item.danger
                 ? 'text-status-red hover:bg-status-red/10'
-                : 'text-text-primary hover:bg-bg-surface-hover'
+                : 'text-text-primary hover:bg-white/6'
             )}
+            style={{ width: 'calc(100% - 8px)' }}
           >
             {item.icon && (
               <Icon

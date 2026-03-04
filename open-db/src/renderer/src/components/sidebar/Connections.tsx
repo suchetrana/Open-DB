@@ -67,10 +67,10 @@ function AddConnectionForm({ onClose }: { onClose: () => void }) {
   };
 
   const inputCls =
-    "w-full bg-bg-input border border-border-input rounded px-2 py-1 text-xs text-text-primary outline-none focus:border-accent-blue";
+    "w-full bg-bg-input border border-[#3c3f41] rounded-item px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-blue transition-colors duration-200";
 
   return (
-    <div className="px-3 py-2 text-xs space-y-2 bg-bg-surface border-t border-border-default">
+    <div className="px-3 py-2 text-xs space-y-2 bg-[#181a1d] border-t border-[#25262a]">
       <div className="font-semibold text-text-primary text-[11px]">New Connection</div>
       <input className={inputCls} placeholder="Connection name (optional)" value={name} onChange={(e) => setName(e.target.value)} />
       <div className="flex gap-2">
@@ -87,13 +87,13 @@ function AddConnectionForm({ onClose }: { onClose: () => void }) {
         <button
           onClick={handleConnect}
           disabled={testing}
-          className="flex-1 bg-accent-button hover:bg-accent-button-hover text-white text-[11px] font-medium py-1 rounded-sm disabled:opacity-50"
+          className="flex-1 bg-accent-button hover:bg-accent-button-hover text-white text-[11px] font-medium py-1.5 rounded-input disabled:opacity-50 transition-all duration-200"
         >
           {testing ? "Connecting…" : "Connect"}
         </button>
         <button
           onClick={onClose}
-          className="flex-1 bg-bg-input hover:bg-[#3e3e42] text-text-primary text-[11px] font-medium py-1 rounded-sm border border-border-input"
+          className="flex-1 bg-bg-input hover:bg-bg-surface-hover text-text-primary text-[11px] font-medium py-1.5 rounded-input border border-[#3c3f41] transition-all duration-200"
         >
           Cancel
         </button>
@@ -135,7 +135,7 @@ export function Connections() {
 
   return (
     <details className="group mt-0.5" open>
-      <summary className="flex items-center px-1 py-0.5 cursor-pointer hover:bg-bg-surface-hover select-none text-text-primary focus:outline-none focus:bg-bg-surface-active">
+      <summary className="flex items-center px-1 py-0.5 cursor-pointer select-none text-text-primary focus:outline-none focus:bg-bg-surface-active glass-row">
         <Icon
           name="chevron_right"
           size={16}
@@ -169,8 +169,8 @@ export function Connections() {
             key={conn.id}
             onClick={() => handleReconnect(conn)}
             className={clsx(
-              "flex items-center gap-2 py-[3px] hover:bg-bg-surface-hover text-text-primary cursor-pointer text-left pr-2 group/conn",
-              activeConnectionId === conn.id && "bg-bg-surface-active"
+              "flex items-center gap-2 py-[3px] text-text-primary cursor-pointer text-left pr-2 group/conn glass-row rounded-item mx-1",
+              activeConnectionId === conn.id && "selected"
             )}
           >
             <Icon

@@ -95,8 +95,8 @@ function TreeNode({
     return (
       <>
         <div
-          className="group w-full flex items-center gap-1 py-[2px] hover:bg-bg-surface-hover text-[11px] text-text-primary select-none cursor-pointer"
-          style={{ paddingLeft }}
+          className="group w-full flex items-center gap-1 py-[3px] text-[11px] text-text-primary select-none cursor-pointer glass-row mx-1"
+          style={{ paddingLeft, width: 'calc(100% - 8px)' }}
           onMouseEnter={() => setShowActions(true)}
           onMouseLeave={() => setShowActions(false)}
         >
@@ -165,7 +165,7 @@ function TreeNode({
                   }}
                   onBlur={() => clearCreatingItem()}
                   placeholder={creatingItem.type === 'folder' ? 'Folder name…' : 'File name…'}
-                  className="flex-1 bg-bg-input border border-accent-blue rounded px-1.5 py-0.5 text-[11px] text-text-primary outline-none"
+                  className="flex-1 bg-bg-input border border-accent-blue rounded-item px-1.5 py-0.5 text-[11px] text-text-primary outline-none"
                 />
               </div>
             )}
@@ -193,8 +193,8 @@ function TreeNode({
   const { icon, color } = fileIcon(node.extension)
   return (
     <div
-      className="group w-full flex items-center gap-1.5 py-[2px] hover:bg-bg-surface-hover text-[11px] text-text-secondary hover:text-text-primary select-none cursor-pointer"
-      style={{ paddingLeft: paddingLeft + 14 }}
+      className="group w-full flex items-center gap-1.5 py-[3px] text-[11px] text-text-secondary hover:text-text-primary select-none cursor-pointer glass-row mx-1"
+      style={{ paddingLeft: paddingLeft + 14, width: 'calc(100% - 8px)' }}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
@@ -278,13 +278,13 @@ export function FileExplorer() {
         </p>
         <button
           onClick={openFolder}
-          className="w-full py-1.5 px-3 bg-accent-button hover:bg-accent-button-hover text-white text-[11px] font-medium rounded transition-colors"
+          className="w-full py-1.5 px-3 bg-accent-button hover:bg-accent-button-hover text-white text-[11px] font-medium rounded-input transition-all duration-200"
         >
           Open Folder
         </button>
         <button
           onClick={openFileDialog}
-          className="w-full mt-2 py-1.5 px-3 border border-border-default text-text-secondary hover:text-text-primary text-[11px] rounded transition-colors hover:bg-bg-surface-hover"
+          className="w-full mt-2 py-1.5 px-3 border border-[#3c3f41] text-text-secondary hover:text-text-primary text-[11px] rounded-input transition-all duration-200 hover:bg-bg-surface-hover"
         >
           Open File
         </button>
@@ -294,7 +294,7 @@ export function FileExplorer() {
 
   return (
     <details className="group" open>
-      <summary className="flex items-center px-1 py-0.5 cursor-pointer hover:bg-bg-surface-hover select-none text-text-primary focus:outline-none">
+      <summary className="flex items-center px-1 py-0.5 cursor-pointer select-none text-text-primary focus:outline-none glass-row">
         <Icon
           name="chevron_right"
           size={16}
@@ -355,7 +355,7 @@ export function FileExplorer() {
               }}
               onBlur={() => clearCreatingItem()}
               placeholder={creatingItem.type === 'folder' ? 'Folder name…' : 'File name…'}
-              className="flex-1 bg-bg-input border border-accent-blue rounded px-1.5 py-0.5 text-[11px] text-text-primary outline-none"
+              className="flex-1 bg-bg-input border border-accent-blue rounded-item px-1.5 py-0.5 text-[11px] text-text-primary outline-none"
             />
           </div>
         )}

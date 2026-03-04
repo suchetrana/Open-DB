@@ -24,14 +24,17 @@ export function MainLayout() {
   }, []);
 
   return (
-    <div className="h-screen flex overflow-hidden">
-      {/* Activity Bar – far left icons */}
+    <div className="h-screen flex overflow-hidden bg-bg-canvas">
+      {/* Activity Bar – far left pill-shaped rail */}
       <ActivityBar />
 
-      {/* Sidebar – resizable panel */}
+      {/* Sidebar – floating glass panel */}
       {sidebarOpen && (
         <>
-          <div style={{ width: sidebarWidth }} className="shrink-0 flex flex-col overflow-hidden">
+          <div
+            style={{ width: sidebarWidth }}
+            className="shrink-0 flex flex-col overflow-hidden glass-panel my-[6px] ml-[6px] animate-float-up"
+          >
             <Sidebar />
           </div>
           {/* Sidebar splitter (horizontal ↔) */}
@@ -43,8 +46,8 @@ export function MainLayout() {
         </>
       )}
 
-      {/* Main content area */}
-      <main className="flex-1 flex flex-col min-w-0 bg-bg-elevated">
+      {/* Main content area — floating glass panel */}
+      <main className="flex-1 flex flex-col min-w-0 glass-panel my-[6px] mr-[6px] ml-[6px] animate-float-up">
         {/* Editor area (tabs + code + results) */}
         <EditorArea />
 

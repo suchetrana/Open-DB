@@ -189,14 +189,14 @@ export function ResultsTable({ columns, rows }: ResultsTableProps) {
     <div className="flex-1 flex flex-col min-h-0">
       {/* Search bar (Ctrl+F) */}
       {searchOpen && (
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-bg-surface border-b border-border-default shrink-0">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#181a1d] border-b border-[#25262a] shrink-0">
           <Icon name="search" size={14} className="text-text-muted" />
           <input
             ref={searchInputRef}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Find in results…"
-            className="bg-bg-input border border-border-default rounded px-2 py-0.5 text-[11px] text-text-primary outline-none focus:border-accent-blue w-60 placeholder:text-text-muted"
+            className="glass-input w-60 px-2 py-0.5 text-[11px] placeholder:text-text-muted"
           />
           {searchTerm && (
             <span className="text-[10px] text-text-secondary font-mono">
@@ -208,7 +208,7 @@ export function ResultsTable({ columns, rows }: ResultsTableProps) {
               setSearchOpen(false);
               setSearchTerm("");
             }}
-            className="ml-auto text-text-secondary hover:text-text-primary p-0.5 rounded hover:bg-[#3e3e42]"
+            className="ml-auto text-text-secondary hover:text-text-primary p-0.5 rounded-item hover:bg-white/6 transition-colors duration-200"
           >
             <Icon name="close" size={14} />
           </button>
@@ -216,7 +216,7 @@ export function ResultsTable({ columns, rows }: ResultsTableProps) {
       )}
 
       {/* Table */}
-      <div className="overflow-auto flex-1 font-mono text-[11px] bg-bg-elevated min-h-0">
+      <div className="overflow-auto flex-1 font-mono text-[11px] bg-[#181a1d] min-h-0">
         <table className="text-left border-collapse" style={{ minWidth: "100%" }}>
           {/* Column groups for widths */}
           <colgroup>
@@ -226,14 +226,14 @@ export function ResultsTable({ columns, rows }: ResultsTableProps) {
           </colgroup>
 
           {/* Header */}
-          <thead className="bg-bg-surface text-text-primary sticky top-0 z-10 shadow-sm">
+          <thead className="bg-[#1a1c20] text-text-primary sticky top-0 z-10 shadow-sm">
             <tr>
               {columns.map((col, i) => (
                 <th
                   key={col.name}
                   className={clsx(
-                    "p-1 pl-3 font-semibold whitespace-nowrap border-b border-border-default relative",
-                    i < columns.length - 1 && "border-r border-r-border-default"
+                    "p-1 pl-3 font-semibold whitespace-nowrap border-b border-[#25262a] relative",
+                    i < columns.length - 1 && "border-r border-r-[#25262a]"
                   )}
                   style={{ width: colWidths[i] }}
                 >
@@ -264,8 +264,8 @@ export function ResultsTable({ columns, rows }: ResultsTableProps) {
               <tr
                 key={rowIdx}
                 className={clsx(
-                  "hover:bg-bg-surface-hover cursor-default h-7",
-                  rowIdx % 2 !== 0 && "bg-[#1a1a1a]"
+                  "hover:bg-white/4 cursor-default h-7",
+                  rowIdx % 2 !== 0 && "bg-white/[0.02]"
                 )}
               >
                 {columns.map((col, colIdx) => (

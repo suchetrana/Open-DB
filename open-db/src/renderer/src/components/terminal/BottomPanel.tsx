@@ -43,7 +43,7 @@ export function BottomPanel() {
   const activeSession = terminalSessions.find((s) => s.id === activeTerminalSessionId) ?? null;
 
   return (
-    <div style={{ height: bottomPanelHeight }} className="bg-bg-elevated border-t border-border-default flex flex-col shrink-0">
+    <div style={{ height: bottomPanelHeight }} className="bg-[#181a1d] border-t border-[#25262a] flex flex-col shrink-0">
       {/* Row splitter (vertical ↕) */}
       <Splitter
         direction="vertical"
@@ -51,15 +51,15 @@ export function BottomPanel() {
         onResize={handleResize}
       />
       {/* Tab bar */}
-      <div className="flex items-center px-4 h-8 gap-6 border-b border-border-default bg-bg-surface">
+      <div className="flex items-center px-4 h-8 gap-6 border-b border-[#25262a] bg-[#181a1d]">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setBottomTab(tab.id)}
             className={clsx(
-              "text-[10px] uppercase font-bold pb-1.5 pt-2 border-b-2 tracking-wide transition-colors",
+              "text-[10px] uppercase font-bold pb-1.5 pt-2 border-b-2 tracking-wide transition-colors duration-200 font-display",
               activeTab === tab.id
-                ? "text-text-primary border-text-primary"
+                ? "text-text-primary border-accent-blue"
                 : "text-text-secondary hover:text-text-primary border-transparent hover:border-text-secondary"
             )}
           >
@@ -68,17 +68,17 @@ export function BottomPanel() {
         ))}
 
         {/* Actions */}
-        <div className="ml-auto flex gap-3 text-text-secondary">
-          <button className="hover:text-text-primary">
+        <div className="ml-auto flex gap-3 text-text-muted">
+          <button className="hover:text-text-primary transition-colors duration-200">
             <Icon name="add" size={16} />
           </button>
-          <button className="hover:text-text-primary">
+          <button className="hover:text-text-primary transition-colors duration-200">
             <Icon name="delete" size={16} />
           </button>
-          <button className="hover:text-text-primary">
+          <button className="hover:text-text-primary transition-colors duration-200">
             <Icon name="keyboard_arrow_up" size={16} />
           </button>
-          <button onClick={toggleBottomPanel} className="hover:text-text-primary">
+          <button onClick={toggleBottomPanel} className="hover:text-text-primary transition-colors duration-200">
             <Icon name="close" size={16} />
           </button>
         </div>
@@ -90,16 +90,16 @@ export function BottomPanel() {
           <>
             {/* Terminal session tabs (left sidebar) */}
             {terminalSessions.length > 0 && (
-              <div className="w-40 border-r border-border-default bg-[#1e1e1e] flex flex-col shrink-0 overflow-y-auto">
+              <div className="w-40 border-r border-[#25262a] bg-[#181a1d] flex flex-col shrink-0 overflow-y-auto">
                 {terminalSessions.map((session) => (
                   <div
                     key={session.id}
                     onClick={() => setActiveTerminalSession(session.id)}
                     className={clsx(
-                      "flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[11px] group/term",
+                      "flex items-center gap-1.5 px-2 py-1.5 cursor-pointer text-[11px] group/term glass-row rounded-item mx-1 my-0.5",
                       session.id === activeTerminalSessionId
-                        ? "bg-[#094771] text-white"
-                        : "text-text-secondary hover:bg-[#2a2d2e] hover:text-text-primary"
+                        ? "selected text-text-primary"
+                        : "text-text-secondary hover:text-text-primary"
                     )}
                   >
                     <Icon
@@ -122,7 +122,7 @@ export function BottomPanel() {
                 {/* New terminal button at bottom */}
                 <button
                   onClick={openLocalTerminal}
-                  className="flex items-center gap-1 px-2 py-1 text-[10px] text-text-muted hover:text-text-primary hover:bg-[#2a2d2e] mt-auto"
+                  className="flex items-center gap-1 px-2 py-1.5 text-[10px] text-text-muted hover:text-text-primary glass-row rounded-item mx-1 mt-auto"
                 >
                   <Icon name="add" size={10} />
                   <span>New Terminal</span>
@@ -136,11 +136,11 @@ export function BottomPanel() {
               ) : (
                 <div className="flex items-center justify-center h-full text-text-muted text-xs">
                   <div className="text-center space-y-2">
-                    <Icon name="terminal" size={32} className="mx-auto opacity-40" />
+                    <Icon name="terminal" size={32} className="mx-auto opacity-30" />
                     <div>No terminal open</div>
                     <button
                       onClick={openLocalTerminal}
-                      className="text-accent-blue hover:underline text-[11px]"
+                      className="text-accent-blue hover:underline text-[11px] transition-colors duration-200"
                     >
                       Open a terminal
                     </button>

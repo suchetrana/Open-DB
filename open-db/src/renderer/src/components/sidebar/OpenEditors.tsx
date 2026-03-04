@@ -23,15 +23,13 @@ export function OpenEditors() {
 
   return (
     <details className="group" open>
-      <summary className="flex items-center px-1 py-0.5 cursor-pointer hover:bg-bg-surface-hover select-none text-text-primary focus:outline-none focus:bg-bg-surface-active">
+      <summary className="glass-row mx-1 cursor-pointer select-none text-text-primary focus:outline-none" style={{ width: 'calc(100% - 8px)' }}>
         <Icon
           name="chevron_right"
           size={16}
           className="transition-transform group-open:rotate-90 text-text-primary"
         />
-        <span className="text-[11px] font-bold uppercase ml-0.5">
-          Open Editors
-        </span>
+        <span className="text-[11px] font-bold uppercase ml-0.5 tracking-[0.5px]">Open Editors</span>
         <button
           onClick={(e) => {
             e.preventDefault();
@@ -48,7 +46,7 @@ export function OpenEditors() {
         <div className="px-3 py-1.5">
           <input
             autoFocus
-            className="w-full bg-bg-input border border-border-input rounded px-2 py-0.5 text-xs text-text-primary outline-none focus:border-accent-blue"
+            className="w-full rounded-item bg-bg-input border border-[#3c3f41] px-2 py-0.5 text-xs text-text-primary outline-none focus:border-accent-blue transition-colors duration-200"
             placeholder="filename.sql"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -74,11 +72,12 @@ export function OpenEditors() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={clsx(
-                "flex items-center gap-2 px-4 py-[3px] cursor-pointer text-left w-full group/file",
+                "glass-row mx-1 gap-2 px-4 py-[3px] cursor-pointer text-left group/file",
                 isActive
-                  ? "bg-bg-surface-active text-white"
-                  : "hover:bg-bg-surface-hover text-text-primary"
+                  ? "selected text-white"
+                  : "text-text-primary"
               )}
+              style={{ width: 'calc(100% - 8px)' }}
             >
               <Icon name={tab.icon} size={14} className={tab.iconColor} />
               <span className="truncate text-xs flex-1">{tab.title}</span>

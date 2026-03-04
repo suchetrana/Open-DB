@@ -8,19 +8,25 @@ export function EditorTabs() {
   const closeTab = useAppStore((s) => s.closeTab);
 
   return (
-    <div className="flex bg-bg-surface h-8 overflow-x-auto no-scrollbar border-b border-bg-elevated">
+    <div className="flex bg-[#161619] h-9 overflow-x-auto no-scrollbar" style={{ backgroundImage: 'linear-gradient(to top, #25262a 1px, transparent 1px)', backgroundRepeat: 'no-repeat', backgroundPosition: 'bottom' }}>
       {tabs.map((tab) => (
         <div
           key={tab.id}
           onClick={() => setActiveTab(tab.id)}
           className={clsx(
-            "flex items-center gap-2 px-3 min-w-[120px] max-w-[200px] text-xs cursor-pointer group transition-all duration-150",
+            "flex items-center gap-2 px-3 min-w-[120px] max-w-[200px] text-xs cursor-pointer group tab-transition font-display",
+            "rounded-t-item",
             tab.isActive
-              ? "bg-bg-elevated text-white border-t-2 border-t-accent-blue"
-              : "text-text-disabled border-r border-r-bg-surface hover:bg-bg-surface-hover hover:text-text-secondary"
+              ? "bg-[#181a1d] text-text-primary"
+              : "bg-[#161619] text-text-muted hover:text-text-secondary"
           )}
+          style={tab.isActive ? {
+            boxShadow: 'inset -1px 0 0 0 #25262a, inset 1px 0 0 0 #25262a',
+          } : {
+            boxShadow: 'inset 0 -1px 0 0 #25262a',
+          }}
         >
-          <Icon name={tab.icon} size={16} className={clsx(tab.iconColor, "transition-colors")} />
+          <Icon name={tab.icon} size={16} className={clsx(tab.iconColor, "transition-colors icon-glow")} />
           <span className="truncate font-mono text-[11px]">{tab.title}</span>
           {tab.isModified && (
             <span className="w-2 h-2 rounded-full bg-text-secondary shrink-0" />
@@ -30,7 +36,7 @@ export function EditorTabs() {
               e.stopPropagation();
               closeTab(tab.id);
             }}
-            className="ml-auto opacity-0 group-hover:opacity-100 hover:bg-[#3e3e42] rounded-sm p-0.5 transition-opacity"
+            className="ml-auto opacity-0 group-hover:opacity-100 hover:bg-[#3c3f41] rounded-full p-0.5 transition-opacity duration-200"
           >
             <Icon name="close" size={14} />
           </button>
