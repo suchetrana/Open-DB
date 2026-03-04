@@ -6,6 +6,7 @@ import { dockerService, type CreateContainerOpts } from '../services/docker.serv
 
 export function registerDockerHandlers(): void {
   ipcMain.handle('docker:status', async () => {
+    await dockerService.checkStatus()
     return { available: dockerService.available }
   })
 

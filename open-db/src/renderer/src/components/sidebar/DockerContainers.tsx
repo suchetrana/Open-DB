@@ -133,6 +133,7 @@ export function DockerContainers() {
   const addConnection = useAppStore((s) => s.addConnection);
   const connectToDatabase = useAppStore((s) => s.connectToDatabase);
   const [showCreate, setShowCreate] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Fetch real containers on mount
   React.useEffect(() => {
@@ -144,6 +145,17 @@ export function DockerContainers() {
     }, 5000);
     return () => clearInterval(id);
   }, [fetchContainers, fetchDockerStatus]);
+
+  const handleRefreshDocker = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetchDockerStatus();
+      await fetchContainers();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleConnectToContainer = async (c: { id: string; name: string; port: number; type: string }) => {
     const dbType = c.type as DatabaseType;
@@ -187,12 +199,30 @@ export function DockerContainers() {
           Docker Containers
         </span>
         {dockerAvailable && (
+          <span className="ml-auto mr-2 flex gap-1">
+            <button
+              onClick={(e) => { e.preventDefault(); handleRefreshDocker(); }}
+              className="text-text-secondary hover:text-text-primary"
+              title="Refresh Docker status"
+            >
+              <Icon name="refresh" size={14} className={refreshing ? 'animate-spin' : ''} />
+            </button>
+            <button
+              onClick={(e) => { e.preventDefault(); setShowCreate(!showCreate); }}
+              className="text-text-secondary hover:text-text-primary"
+              title="Create container"
+            >
+              <Icon name="add" size={14} />
+            </button>
+          </span>
+        )}
+        {!dockerAvailable && (
           <button
-            onClick={(e) => { e.preventDefault(); setShowCreate(!showCreate); }}
+            onClick={(e) => { e.preventDefault(); handleRefreshDocker(); }}
             className="ml-auto mr-2 text-text-secondary hover:text-text-primary"
-            title="Create container"
+            title="Retry Docker connection"
           >
-            <Icon name="add" size={14} />
+            <Icon name="refresh" size={14} className={refreshing ? 'animate-spin' : ''} />
           </button>
         )}
       </summary>
@@ -201,7 +231,7 @@ export function DockerContainers() {
 
       <div className="flex flex-col text-[13px] pb-2 font-mono">
         {!dockerAvailable && (
-          <div className="text-text-muted text-[11px] py-2 pl-6 space-y-1">
+          <div className="text-text-muted text-[11px] py-2 pl-6 space-y-2">
             <div className="flex items-center gap-1.5">
               <Icon name="warning" size={12} className="text-status-amber" />
               Docker not available
@@ -209,6 +239,14 @@ export function DockerContainers() {
             <div className="text-[10px] text-text-secondary pl-3.5">
               Start Docker Desktop to manage containers.
             </div>
+            <button
+              onClick={handleRefreshDocker}
+              disabled={refreshing}
+              className="ml-3.5 flex items-center gap-1 text-[10px] text-accent-blue hover:text-text-bright disabled:opacity-50"
+            >
+              <Icon name="refresh" size={12} className={refreshing ? 'animate-spin' : ''} />
+              {refreshing ? 'Checking…' : 'Retry connection'}
+            </button>
           </div>
         )}
         {dockerAvailable && containers.length === 0 && !showCreate && (

@@ -151,7 +151,68 @@ src/main/services/
 | Replace `window.electronAPI` with Tauri invoke | Update all store actions to use `invoke()` from `@tauri-apps/api/core` |
 | Migrate window management | Replace Electron `BrowserWindow` config with Tauri window config |
 | Update build pipeline | Replace `electron-vite` with Tauri's build system |
-| Sidecar bridge | Temporarily run Node.js services as a Tauri sidecar process, communicating via stdio/JSON |
+| Sidecar bridge | Temporarily run Node.js services as a Tauri sidecar process, communicating via stdio with newline-delimited JSON (see protocol spec below) |
+
+#### Sidecar Bridge Protocol
+
+The Tauri Rust process communicates with the Node.js sidecar over stdin/stdout using **newline-delimited JSON** (NDJSON). Each message is a single UTF-8 JSON object terminated by `\n`. Neither side should emit pretty-printed JSON on the bridge channel (stderr is reserved for human-readable logs).
+
+**Request envelope** (Rust -> Node):
+
+```json
+{"request_id":"a1b2c3","type":"invoke","command":"db:execute-query","payload":{"connectionId":"conn-1","sql":"SELECT 1"}}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `request_id` | string | Unique ID (UUID v4) for correlating the response. |
+| `type` | `"invoke"` | Message type. Reserved values: `invoke`, `cancel`. |
+| `command` | string | The IPC channel name (e.g., `db:execute-query`). |
+| `payload` | object | Arguments for the command. Shape matches the existing IPC handler signature. |
+
+**Response envelope** (Node -> Rust):
+
+```json
+{"request_id":"a1b2c3","type":"response","success":true,"payload":{"columns":["?column?"],"rows":[{"?column?":1}],"rowCount":1,"executionTimeMs":12}}
+```
+
+**Error response:**
+
+```json
+{"request_id":"a1b2c3","type":"response","success":false,"error":{"code":"CONNECTION_FAILED","message":"Could not connect to database","details":"ECONNREFUSED 127.0.0.1:5432"}}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `request_id` | string | Matches the originating request. |
+| `type` | `"response"` \| `"stream_chunk"` \| `"stream_end"` | See streaming below. |
+| `success` | boolean | `true` if the command succeeded. |
+| `payload` | object \| null | Result data on success, `null` on error. |
+| `error` | object \| null | `null` on success. Contains `code` (string enum), `message` (human-readable), and optional `details` (string). |
+
+**Streaming responses** (e.g., terminal data, Docker logs):
+
+For commands that produce incremental output, the sidecar sends multiple messages per request:
+
+1. Zero or more `stream_chunk` messages:
+   ```json
+   {"request_id":"a1b2c3","type":"stream_chunk","payload":{"data":"root@container:/# "}}
+   ```
+2. Exactly one `stream_end` sentinel:
+   ```json
+   {"request_id":"a1b2c3","type":"stream_end","success":true,"payload":null}
+   ```
+
+Chunks are delivered in order. The Rust side must buffer or forward each chunk as a Tauri event. Backpressure: if the Rust consumer falls behind, the Node sidecar may buffer up to 64 KB per stream before pausing writes (Node stream `highWaterMark`). The Rust side should drain the stdout pipe promptly.
+
+**Timeouts and retries:**
+
+| Concern | Policy |
+|---|---|---|
+| Per-request timeout | 30 seconds default. Configurable per command (e.g., `docker:create-container` may use 120s). Rust side starts a timer on send; if no `response` or `stream_end` arrives, it synthesizes a timeout error. |
+| Retry policy | No automatic retries. All commands are treated as non-idempotent by default. The caller (store action) decides whether to retry. |
+| Idempotent commands | `db:get-connections`, `docker:status`, `docker:list-containers`, `fs:read-dir`, `fs:read-file` are safe to retry. Document idempotency in the command schema. |
+| Sidecar crash | If the Node process exits unexpectedly, the Rust side detects EOF on stdout, logs the error, and surfaces a "sidecar disconnected" error to the frontend. A restart button in the UI re-spawns the sidecar. |
 
 **New file structure (additive):**
 
@@ -196,7 +257,46 @@ src/renderer/src/
 
 - Simplest service. Single SQLite file, three tables (connections, query_history, settings).
 - Use `rusqlite` with the same schema.
-- Migrate data on first launch of Rust version.
+
+**Data migration procedure:**
+
+The Rust storage service must migrate data from the old sql.js-managed SQLite file on first launch. The migration runs once and is guarded by a marker.
+
+1. **Detection:** On startup, check for two conditions:
+   - The old sql.js database file exists at `{userData}/opendb.sqlite`.
+   - The Rust migration marker file `{userData}/.migration_complete` does **not** exist.
+   If both conditions are true, run the migration. If the marker exists, skip migration and open the rusqlite database directly.
+
+2. **Backup:** Before any writes, create a timestamped backup:
+   ```
+   {userData}/backups/{ISO8601-timestamp}_opendb.sqlite
+   ```
+   Example: `backups/2026-03-15T14-30-00_opendb.sqlite`. Create the `backups/` directory if it does not exist. Copy the original file byte-for-byte.
+
+3. **Migration logic:** Implemented as a versioned migration module (`src-tauri/src/storage/migrations.rs`):
+   - Open the old SQLite file read-only using rusqlite.
+   - Open (or create) the new rusqlite database at `{userData}/opendb_v2.sqlite`.
+   - Inside a **single transaction** on the new database:
+     - Create the schema (tables: `connections`, `query_history`, `settings`) matching the existing column definitions.
+     - Read all rows from each table in the old database and insert them into the new database.
+     - Column mapping is 1:1 — the schema is identical. If a future schema change is needed, add a numbered migration script under `src-tauri/src/storage/migrations/` (e.g., `001_initial.sql`, `002_add_column.sql`) and track applied versions in a `schema_version` table.
+   - Commit the transaction.
+
+4. **Success:** Write the marker file `{userData}/.migration_complete` containing:
+   ```json
+   {"migrated_at":"2026-03-15T14:30:00Z","source":"opendb.sqlite","target":"opendb_v2.sqlite","backup":"backups/2026-03-15T14-30-00_opendb.sqlite"}
+   ```
+   From this point forward, the Rust service uses `opendb_v2.sqlite`.
+
+5. **Failure:** If any step after backup fails:
+   - Roll back the transaction on the new database (automatic if not committed).
+   - Delete the partially written `opendb_v2.sqlite` if it exists.
+   - Do **not** write the marker file.
+   - Log the full error with stack context.
+   - Surface a user-visible error: "Data migration failed. Your original data is safe at `{userData}/opendb.sqlite`. Please report this issue."
+   - The app should still launch but in a degraded state (no saved connections/history until migration succeeds).
+
+6. **Old file retention:** The original `opendb.sqlite` is **never deleted automatically**. After confirming the migration works, users can remove it manually or via a future CLI command (`opendb-studio --cleanup-legacy-db`). Document this in the release notes.
 
 #### 4.2 Docker Service (bollard)
 

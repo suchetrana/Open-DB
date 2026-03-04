@@ -16,6 +16,8 @@ Thank you for considering a contribution to OpenDB Studio. This document outline
 - [Architecture Guidelines](#architecture-guidelines)
 - [Issue Guidelines](#issue-guidelines)
 - [Review Process](#review-process)
+- [Areas Looking for Contributions](#areas-looking-for-contributions)
+- [Questions?](#questions)
 
 ---
 
@@ -30,8 +32,8 @@ By participating in this project, you agree to maintain a respectful, inclusive,
 1. **Fork** the repository to your GitHub account
 2. **Clone** your fork locally:
    ```bash
-   git clone https://github.com/<your-username>/OpenDb-Studio.git
-   cd OpenDb-Studio/open-db
+   git clone https://github.com/<your-username>/Open-DB.git
+   cd Open-DB/open-db
    ```
 3. **Install dependencies:**
    ```bash

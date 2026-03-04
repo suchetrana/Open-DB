@@ -35,7 +35,7 @@
   color: white;
 }
 
-/* ── SQL Syntax Highlighting (Beekeeper-style) ── */
+/* ── SQL Syntax Highlighting (Beekeeper-style — bold & distinct) ── */
 .syntax-keyword { color: #569cd6; font-weight: bold; }
 .syntax-function { color: #dcdcaa; }
 .syntax-string { color: #ce9178; }
@@ -44,28 +44,82 @@
 .syntax-operator { color: #d4d4d4; }
 .syntax-type { color: #4ec9b0; }
 
-/* SQL editor overlay highlighting — enhanced colors */
-.sql-keyword { color: #569cd6; font-weight: 600; text-shadow: 0 0 1px rgba(86, 156, 214, 0.15); }
-.sql-function { color: #dcdcaa; }
-.sql-string { color: #ce9178; }
-.sql-number { color: #b5cea8; }
-.sql-comment { color: #6a9955; font-style: italic; opacity: 0.85; }
-.sql-operator { color: #d4d4d4; }
-.sql-type { color: #4ec9b0; font-weight: 500; }
-.sql-boolean { color: #569cd6; font-weight: 600; }
-.sql-null { color: #569cd6; font-style: italic; font-weight: 600; }
-.sql-identifier { color: #9cdcfe; }
-.sql-quoted-id { color: #ce9178; }
-.sql-table { color: #9cdcfe; }
-.sql-alias { color: #9cdcfe; font-style: italic; }
-.sql-paren { color: #ffd700; }
-.sql-semicolon { color: #808080; }
-.sql-star { color: #d7ba7d; font-weight: bold; }
-.sql-dot { color: #cccccc; }
-.sql-param { color: #9cdcfe; }
-.sql-placeholder { color: #c586c0; font-weight: 500; }
-.sql-cast { color: #808080; }
-.sql-comma { color: #808080; }
+/* SQL editor overlay highlighting — vivid Beekeeper-style colors */
+.sql-keyword {
+  color: #569cd6;
+  font-weight: 700;
+}
+.sql-function {
+  color: #dcdcaa;
+  font-weight: 500;
+}
+.sql-string {
+  color: #ce9178;
+}
+.sql-number {
+  color: #b5cea8;
+}
+.sql-comment {
+  color: #6a9955;
+  font-style: italic;
+}
+.sql-operator {
+  color: #d4d4d4;
+}
+.sql-type {
+  color: #4ec9b0;
+  font-weight: 600;
+}
+.sql-boolean {
+  color: #569cd6;
+  font-weight: 700;
+}
+.sql-null {
+  color: #569cd6;
+  font-style: italic;
+  font-weight: 700;
+}
+.sql-identifier {
+  color: #e2e2e2;
+}
+.sql-quoted-id {
+  color: #ce9178;
+}
+.sql-table {
+  color: #9cdcfe;
+}
+.sql-alias {
+  color: #9cdcfe;
+  font-style: italic;
+}
+.sql-paren {
+  color: #ffd700;
+  font-weight: 600;
+}
+.sql-semicolon {
+  color: #808080;
+}
+.sql-star {
+  color: #d7ba7d;
+  font-weight: 700;
+}
+.sql-dot {
+  color: #cccccc;
+}
+.sql-param {
+  color: #9cdcfe;
+}
+.sql-placeholder {
+  color: #c586c0;
+  font-weight: 600;
+}
+.sql-cast {
+  color: #d4d4d4;
+  font-weight: 500;
+}
+.sql-comma {
+  color: #808080;
+}
 
 /* JSON highlighting */
 .json-key { color: #9cdcfe; }

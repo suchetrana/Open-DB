@@ -244,6 +244,49 @@ function highlightSql(text: string): string {
   return result.join('')
 }
 
+// ── Autocomplete: merge all completable words into one list with categories ──
+const ALL_COMPLETIONS: { word: string; kind: 'keyword' | 'type' | 'function' }[] = [
+  ...[...KEYWORDS].map((w) => ({ word: w, kind: 'keyword' as const })),
+  ...[...TYPES].map((w) => ({ word: w, kind: 'type' as const })),
+  ...[...FUNCTIONS].map((w) => ({ word: w, kind: 'function' as const })),
+]
+
+/** Get the word being typed at the cursor position */
+function getWordAtCursor(text: string, pos: number): { word: string; start: number } {
+  let start = pos
+  while (start > 0 && /[a-zA-Z0-9_]/.test(text[start - 1])) start--
+  return { word: text.slice(start, pos), start }
+}
+
+/** Filter completions based on partial input */
+function getCompletions(partial: string, limit = 12): { word: string; kind: string }[] {
+  if (partial.length < 1) return []
+  const upper = partial.toUpperCase()
+  const exact: { word: string; kind: string }[] = []
+  const startsWith: { word: string; kind: string }[] = []
+  const contains: { word: string; kind: string }[] = []
+
+  for (const item of ALL_COMPLETIONS) {
+    if (item.word === upper) continue // skip exact match
+    if (item.word.startsWith(upper)) {
+      startsWith.push(item)
+    } else if (item.word.includes(upper)) {
+      contains.push(item)
+    }
+  }
+  return [...startsWith, ...contains].slice(0, limit)
+}
+
+/** Icon + color for autocomplete item kinds */
+function completionIcon(kind: string): { icon: string; color: string; label: string } {
+  switch (kind) {
+    case 'keyword': return { icon: 'code', color: '#569cd6', label: 'Keyword' }
+    case 'type': return { icon: 'data_object', color: '#4ec9b0', label: 'Type' }
+    case 'function': return { icon: 'functions', color: '#dcdcaa', label: 'Function' }
+    default: return { icon: 'text_fields', color: '#9cdcfe', label: 'Text' }
+  }
+}
+
 export function SqlEditor() {
   const activeTabId = useAppStore((s) => s.activeTabId)
   const tabs = useAppStore((s) => s.tabs)
@@ -253,7 +296,15 @@ export function SqlEditor() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const preRef = useRef<HTMLPreElement>(null)
   const gutterRef = useRef<HTMLDivElement>(null)
+  const acRef = useRef<HTMLDivElement>(null)
   const [activeLine, setActiveLine] = useState(1)
+
+  // Autocomplete state
+  const [acItems, setAcItems] = useState<{ word: string; kind: string }[]>([])
+  const [acIndex, setAcIndex] = useState(0)
+  const [acPos, setAcPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+  const [acVisible, setAcVisible] = useState(false)
+  const acWordRef = useRef<{ word: string; start: number }>({ word: '', start: 0 })
 
   const activeTab = useMemo(
     () => tabs.find((t) => t.id === activeTabId),
@@ -273,6 +324,65 @@ export function SqlEditor() {
     setActiveLine(line)
   }, [])
 
+  // Calculate cursor pixel position for autocomplete popup
+  const getCursorPixelPos = useCallback(() => {
+    const ta = textareaRef.current
+    if (!ta) return { top: 0, left: 0 }
+    const text = ta.value.substring(0, ta.selectionStart)
+    const lines = text.split('\n')
+    const lineNum = lines.length
+    const colNum = lines[lines.length - 1].length
+    // Each line is 20px, padding top 12px, char width ~7.8px for 13px mono
+    const top = 12 + lineNum * 20 - ta.scrollTop
+    const left = 16 + colNum * 7.8 - ta.scrollLeft
+    return { top, left }
+  }, [])
+
+  // Update autocomplete suggestions
+  const updateAutocomplete = useCallback(() => {
+    const ta = textareaRef.current
+    if (!ta) return
+    const pos = ta.selectionStart
+    const { word, start } = getWordAtCursor(ta.value, pos)
+    acWordRef.current = { word, start }
+
+    if (word.length >= 1) {
+      const items = getCompletions(word)
+      if (items.length > 0) {
+        setAcItems(items)
+        setAcIndex(0)
+        setAcPos(getCursorPixelPos())
+        setAcVisible(true)
+        return
+      }
+    }
+    setAcVisible(false)
+    setAcItems([])
+  }, [getCursorPixelPos])
+
+  // Accept the selected autocomplete item
+  const acceptCompletion = useCallback((item: { word: string }) => {
+    const ta = textareaRef.current
+    if (!ta || !activeTabId) return
+    const { start } = acWordRef.current
+    const pos = ta.selectionStart
+    const val = ta.value
+    // Determine case: if user typed lowercase, insert lowercase; otherwise uppercase
+    const typed = val.slice(start, pos)
+    const isLower = typed.length > 0 && typed === typed.toLowerCase()
+    const insertWord = isLower ? item.word.toLowerCase() : item.word
+    const newVal = val.substring(0, start) + insertWord + val.substring(pos)
+    updateTabContent(activeTabId, newVal)
+    setAcVisible(false)
+    setAcItems([])
+    // Move cursor to end of inserted word
+    requestAnimationFrame(() => {
+      const newPos = start + insertWord.length
+      ta.selectionStart = ta.selectionEnd = newPos
+      ta.focus()
+    })
+  }, [activeTabId, updateTabContent])
+
   // Track selection changes and update store
   const handleSelectionChange = useCallback(() => {
     const ta = textareaRef.current
@@ -288,22 +398,56 @@ export function SqlEditor() {
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       if (activeTabId) updateTabContent(activeTabId, e.target.value)
       handleSelectionChange()
+      // Trigger autocomplete after state update
+      requestAnimationFrame(() => updateAutocomplete())
     },
-    [activeTabId, updateTabContent, handleSelectionChange]
+    [activeTabId, updateTabContent, handleSelectionChange, updateAutocomplete]
   )
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // ── Autocomplete navigation ──
+      if (acVisible && acItems.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault()
+          setAcIndex((prev) => (prev + 1) % acItems.length)
+          return
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault()
+          setAcIndex((prev) => (prev - 1 + acItems.length) % acItems.length)
+          return
+        }
+        if (e.key === 'Tab' || e.key === 'Enter') {
+          // Only accept on Tab/Enter if autocomplete is showing
+          if (acItems[acIndex]) {
+            e.preventDefault()
+            acceptCompletion(acItems[acIndex])
+            return
+          }
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          setAcVisible(false)
+          return
+        }
+      }
+
+      // ── Execute query ──
       if ((e.ctrlKey && e.key === 'Enter') || e.key === 'F5') {
         e.preventDefault()
+        setAcVisible(false)
         const ta = textareaRef.current
         let selectedText: string | undefined
         if (ta && ta.selectionStart !== ta.selectionEnd) {
           selectedText = ta.value.substring(ta.selectionStart, ta.selectionEnd)
         }
         executeQuery(selectedText)
+        return
       }
-      if (e.key === 'Tab') {
+
+      // ── Tab indent (when autocomplete NOT visible) ──
+      if (e.key === 'Tab' && !acVisible) {
         e.preventDefault()
         const ta = textareaRef.current
         if (!ta) return
@@ -316,6 +460,7 @@ export function SqlEditor() {
           ta.selectionStart = ta.selectionEnd = start + 2
         })
       }
+
       // Auto-close brackets
       if (e.key === '(') {
         const ta = textareaRef.current
@@ -348,8 +493,22 @@ export function SqlEditor() {
         }
       }
     },
-    [activeTabId, updateTabContent, executeQuery]
+    [activeTabId, updateTabContent, executeQuery, acVisible, acItems, acIndex, acceptCompletion]
   )
+
+  // Close autocomplete on blur
+  const handleBlur = useCallback(() => {
+    // Delay so clicking on autocomplete item works
+    setTimeout(() => setAcVisible(false), 200)
+  }, [])
+
+  // Scroll autocomplete selected item into view
+  useEffect(() => {
+    if (acVisible && acRef.current) {
+      const item = acRef.current.children[acIndex] as HTMLElement
+      if (item) item.scrollIntoView({ block: 'nearest' })
+    }
+  }, [acIndex, acVisible])
 
   const syncScroll = useCallback(() => {
     const ta = textareaRef.current
@@ -362,6 +521,8 @@ export function SqlEditor() {
     if (ta && gutter) {
       gutter.scrollTop = ta.scrollTop
     }
+    // Hide autocomplete on scroll
+    setAcVisible(false)
   }, [])
 
   useEffect(() => { syncScroll() }, [content, syncScroll])
@@ -398,6 +559,7 @@ export function SqlEditor() {
         <pre
           ref={preRef}
           className="absolute inset-0 text-[13px] leading-[20px] py-3 px-4 overflow-hidden pointer-events-none whitespace-pre-wrap break-words font-mono text-text-primary"
+          style={{ zIndex: 1 }}
           aria-hidden="true"
           dangerouslySetInnerHTML={{ __html: highlighted + '\n' }}
         />
@@ -411,10 +573,66 @@ export function SqlEditor() {
           onClick={handleSelectionChange}
           onSelect={handleSelectionChange}
           onScroll={syncScroll}
+          onBlur={handleBlur}
           spellCheck={false}
           className="absolute inset-0 w-full h-full bg-transparent text-[13px] leading-[20px] text-transparent caret-text-primary outline-none resize-none py-3 px-4 overflow-auto font-mono whitespace-pre-wrap break-words placeholder:text-text-muted"
+          style={{ zIndex: 2, caretColor: '#aeafad' }}
           placeholder="-- Type your SQL query here and press Ctrl+Enter to execute"
         />
+
+        {/* ── Autocomplete dropdown ── */}
+        {acVisible && acItems.length > 0 && (
+          <div
+            ref={acRef}
+            className="absolute z-50 min-w-[260px] max-w-[360px] max-h-[240px] overflow-auto bg-[#252526] border border-[#454545] rounded-md shadow-2xl"
+            style={{ top: acPos.top, left: acPos.left }}
+          >
+            {acItems.map((item, i) => {
+              const { icon, color, label } = completionIcon(item.kind)
+              const typed = acWordRef.current.word
+              const upper = typed.toUpperCase()
+              const wordDisplay = typed === typed.toLowerCase() ? item.word.toLowerCase() : item.word
+              // Highlight the matched portion
+              const matchIdx = wordDisplay.toUpperCase().indexOf(upper)
+              return (
+                <div
+                  key={item.word}
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    acceptCompletion(item)
+                  }}
+                  onMouseEnter={() => setAcIndex(i)}
+                  className={clsx(
+                    'flex items-center gap-2 px-2.5 py-[5px] cursor-pointer text-[12px] transition-colors',
+                    i === acIndex ? 'bg-[#04395e]' : 'hover:bg-[#2a2d2e]'
+                  )}
+                >
+                  {/* Kind icon */}
+                  <span
+                    className="material-symbols-outlined select-none shrink-0"
+                    style={{ fontSize: 14, color }}
+                  >
+                    {icon}
+                  </span>
+                  {/* Word with match highlight */}
+                  <span className="flex-1 font-mono text-[12px] text-[#cccccc] truncate">
+                    {matchIdx >= 0 ? (
+                      <>
+                        <span>{wordDisplay.slice(0, matchIdx)}</span>
+                        <span className="text-[#18a3ff] font-semibold">{wordDisplay.slice(matchIdx, matchIdx + typed.length)}</span>
+                        <span>{wordDisplay.slice(matchIdx + typed.length)}</span>
+                      </>
+                    ) : (
+                      wordDisplay
+                    )}
+                  </span>
+                  {/* Kind label */}
+                  <span className="text-[10px] text-[#808080] shrink-0">{label}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

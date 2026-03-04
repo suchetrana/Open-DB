@@ -61,6 +61,11 @@ class DockerService {
 
   /** Ping daemon – called once at startup */
   async initialize(): Promise<boolean> {
+    return this.checkStatus()
+  }
+
+  /** Re-ping daemon – can be called anytime to refresh availability */
+  async checkStatus(): Promise<boolean> {
     try {
       await this.docker.ping()
       this._available = true
