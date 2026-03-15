@@ -103,6 +103,12 @@ interface ElectronAPI {
   terminal: TerminalAPI
   database: DatabaseAPI
   filesystem: FilesystemAPI
+  window: {
+    toggleMaximize(): Promise<{ isMaximized: boolean }>
+    isMaximized(): Promise<{ isMaximized: boolean }>
+    getZoom(): Promise<{ zoomFactor: number }>
+    setZoom(factor: number): Promise<{ zoomFactor: number }>
+  }
 }
 
 declare global {
