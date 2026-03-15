@@ -156,6 +156,21 @@ export const electronAPI = {
 
     getColumns: (connectionId: string, schema: string, table: string): Promise<{ name: string; dataType: string; nullable: boolean; defaultValue: string | null; isPrimaryKey: boolean }[]> =>
       ipcRenderer.invoke('db:get-columns', connectionId, schema, table)
+  },
+
+  // ── Window ──
+  window: {
+    toggleMaximize: (): Promise<{ isMaximized: boolean }> =>
+      ipcRenderer.invoke('window:toggle-maximize'),
+
+    isMaximized: (): Promise<{ isMaximized: boolean }> =>
+      ipcRenderer.invoke('window:is-maximized'),
+
+    getZoom: (): Promise<{ zoomFactor: number }> =>
+      ipcRenderer.invoke('window:get-zoom'),
+
+    setZoom: (factor: number): Promise<{ zoomFactor: number }> =>
+      ipcRenderer.invoke('window:set-zoom', factor)
   }
 }
 
