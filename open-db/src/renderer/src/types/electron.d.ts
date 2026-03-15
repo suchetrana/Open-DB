@@ -69,6 +69,9 @@ interface DatabaseAPI {
   getSchemas(connectionId: string): Promise<{ name: string }[]>
   getTables(connectionId: string, schema: string): Promise<{ schema: string; name: string; type: 'table' | 'view'; rowEstimate: number }[]>
   getColumns(connectionId: string, schema: string, table: string): Promise<{ name: string; dataType: string; nullable: boolean; defaultValue: string | null; isPrimaryKey: boolean }[]>
+  getIndexes(connectionId: string, schema: string, table: string): Promise<{ name: string; columns: string[]; isUnique: boolean; isPrimary: boolean; type: string; definition: string }[]>
+  getRelations(connectionId: string, schema: string, table: string): Promise<{ name: string; sourceColumn: string; targetSchema: string; targetTable: string; targetColumn: string; onUpdate: string; onDelete: string }[]>
+  getTriggers(connectionId: string, schema: string, table: string): Promise<{ name: string; event: string; timing: string; definition: string }[]>
 }
 
 interface ContainerInfo {

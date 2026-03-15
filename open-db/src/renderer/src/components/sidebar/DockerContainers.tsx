@@ -31,12 +31,12 @@ const DB_PASSWORD_CANDIDATES: Record<string, string[]> = {
 
 function StatusDot({ status }: { status: ContainerStatus }) {
   if (status === "running") {
-    return <div className="w-2.5 h-2.5 rounded-full bg-status-green pulse-dot" />;
+    return <div className="w-2 h-2 rounded-full bg-status-green shadow-[0_0_8px_rgba(115,176,10,0.45)]" />;
   }
   if (status === "starting") {
-    return <div className="w-2.5 h-2.5 rounded-full bg-status-amber animate-pulse" />;
+    return <div className="w-2 h-2 rounded-full bg-status-amber animate-pulse" />;
   }
-  return <div className="w-2.5 h-2.5 rounded-full border border-text-secondary" />;
+  return <div className="w-2 h-2 rounded-full border border-[#52525b]" />;
 }
 
 function statusTextColor(status: ContainerStatus): string {
@@ -239,27 +239,30 @@ export function DockerContainers() {
 
   return (
     <details className="group mt-0.5" open>
-      <summary className="glass-row mx-1 cursor-pointer select-none text-text-primary focus:outline-none" style={{ width: 'calc(100% - 8px)' }}>
+      <summary
+        className="mx-1 flex items-center rounded-item bg-white/[0.02] px-1.5 py-1 cursor-pointer select-none text-text-primary focus:outline-none"
+        style={{ width: "calc(100% - 8px)" }}
+      >
         <Icon
           name="chevron_right"
-          size={17}
-          className="transition-transform group-open:rotate-90 text-text-primary"
+          size={14}
+          className="transition-transform group-open:rotate-90 text-text-muted"
         />
-        <span className="text-[12px] font-bold uppercase ml-0.5 tracking-[0.5px]">
+        <span className="text-[11px] font-bold uppercase ml-1 tracking-[0.06em] text-text-secondary">
           Docker Containers
         </span>
         {dockerAvailable && (
-          <span className="ml-auto mr-2 flex gap-1">
+          <span className="ml-auto mr-1 flex items-center gap-1">
             <button
               onClick={(e) => { e.preventDefault(); handleRefreshDocker(); }}
-              className="text-text-secondary hover:text-text-primary"
+              className="rounded-item p-1 text-text-muted hover:text-text-primary hover:bg-bg-surface-hover transition-colors duration-200"
               title="Refresh Docker status"
             >
               <Icon name="refresh" size={14} className={refreshing ? 'animate-spin' : ''} />
             </button>
             <button
               onClick={(e) => { e.preventDefault(); setShowCreate(!showCreate); }}
-              className="text-text-secondary hover:text-text-primary"
+              className="rounded-item p-1 text-text-muted hover:text-text-primary hover:bg-bg-surface-hover transition-colors duration-200"
               title="Create container"
             >
               <Icon name="add" size={14} />
@@ -269,7 +272,7 @@ export function DockerContainers() {
         {!dockerAvailable && (
           <button
             onClick={(e) => { e.preventDefault(); handleRefreshDocker(); }}
-            className="ml-auto mr-2 text-text-secondary hover:text-text-primary"
+            className="ml-auto mr-1 rounded-item p-1 text-text-muted hover:text-text-primary hover:bg-bg-surface-hover transition-colors duration-200"
             title="Retry Docker connection"
           >
             <Icon name="refresh" size={14} className={refreshing ? 'animate-spin' : ''} />
@@ -279,7 +282,7 @@ export function DockerContainers() {
 
       {showCreate && dockerAvailable && <CreateContainerForm onClose={() => setShowCreate(false)} />}
 
-      <div className="px-3 pt-1 pb-0.5 text-[11px] text-text-muted">
+      <div className="px-4 pt-1 pb-2 text-[12px] text-text-muted">
         Manage local database containers quickly.
       </div>
 
@@ -308,76 +311,83 @@ export function DockerContainers() {
             No containers. Click + to create one.
           </div>
         )}
-        <div className="flex flex-col gap-2 px-1 pt-1">
+        <div className="flex flex-col gap-2 px-2 pb-2">
         {containers.map((c) => (
           <div
             key={c.id}
-            className="glass-row mx-1 px-3 py-2.5 text-text-primary cursor-pointer group/item border border-border-subtle bg-bg-surface shadow-glass"
-            style={{ width: 'calc(100% - 8px)' }}
+            className="rounded-item border border-border-default bg-[#27272a] px-3 py-2.5 text-text-primary cursor-pointer group/item transition-colors duration-200 hover:border-[#52525b]"
           >
-            <div className="flex items-center gap-2">
-              <StatusDot status={c.status} />
-              <span className={clsx("text-[11px] font-semibold uppercase tracking-wide", statusTextColor(c.status))}>
-                {statusLabel(c.status)}
-              </span>
-              <span className="rounded-item border border-border-subtle px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-text-secondary">
-                {c.type}
-              </span>
-              <span className="ml-auto flex items-center gap-1.5">
-                {c.status === "stopped" && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); startContainer(c.id); }}
-                    title="Run container"
-                    className="flex items-center gap-1 rounded-input border border-border-default bg-bg-surface-hover px-2 py-1 text-[11px] font-medium text-text-primary hover:text-status-green transition-colors duration-200"
-                  >
-                    <Icon name="play_arrow" size={14} />
-                    Run
-                  </button>
-                )}
-                {c.status === "running" && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleConnectToContainer(c); }}
-                    title="Connect to database"
-                    className="flex items-center gap-1 rounded-input border border-border-default bg-bg-surface-hover px-2 py-1 text-[11px] font-medium text-text-primary hover:text-status-green transition-colors duration-200"
-                  >
-                    <Icon name="database" size={13} />
-                    {connectingContainerId === c.id ? "Connecting…" : "Connect"}
-                  </button>
-                )}
-              </span>
-            </div>
-
-            <div className="mt-2 flex items-center gap-2 text-[13px]">
-              <span
-                className={clsx(
-                  "truncate font-semibold",
-                  c.status === "stopped" && "line-through decoration-[#555] text-text-secondary"
-                )}
-              >
-                {c.name}
-              </span>
-              {c.port > 0 && (
-                <span className="rounded-item border border-border-subtle px-1.5 py-0.5 text-[11px] text-text-muted font-mono">:{c.port}</span>
-              )}
-
-              <span className="ml-auto flex items-center gap-1 opacity-80 group-hover/item:opacity-100 transition-opacity duration-200">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <StatusDot status={c.status} />
+                <span
+                  className={clsx(
+                    "truncate font-mono text-[13px] font-medium",
+                    c.status === "stopped" ? "text-text-secondary" : "text-text-primary"
+                  )}
+                >
+                  {c.name}
+                </span>
+              </div>
+              <span className="flex items-center gap-1.5">
                 {c.status === "running" && (
                   <button
                     onClick={(e) => { e.stopPropagation(); stopContainer(c.id); }}
                     title="Stop container"
-                    className="rounded-item p-1 hover:bg-bg-surface-hover"
+                    className="rounded-item p-1 text-status-red hover:text-[#f87171] hover:bg-status-red/15 transition-colors duration-200"
                   >
-                    <Icon name="stop" size={14} className="text-text-secondary hover:text-status-red" />
+                    <Icon name="stop" size={14} />
                   </button>
                 )}
                 <button
-                  onClick={(e) => { e.stopPropagation(); removeContainer(c.id); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const confirmed = window.confirm(`Remove container "${c.name}"? This action cannot be undone.`);
+                    if (confirmed) {
+                      void removeContainer(c.id);
+                    }
+                  }}
                   title="Remove container"
-                  className="rounded-item p-1 hover:bg-bg-surface-hover"
+                  className="rounded-item p-1 text-text-secondary hover:text-status-red hover:bg-status-red/15 transition-colors duration-200"
                 >
-                  <Icon name="delete" size={14} className="text-text-secondary hover:text-status-red" />
+                  <Icon name="delete" size={14} />
                 </button>
               </span>
+            </div>
+
+            <div className="mt-2 flex items-center gap-1.5">
+              <span className={clsx("text-[10px] font-semibold uppercase tracking-[0.05em]", statusTextColor(c.status))}>
+                {statusLabel(c.status)}
+              </span>
+              <span className="rounded-item bg-white/5 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.05em] text-text-secondary">
+                {c.type}
+              </span>
+              {c.port > 0 && (
+                <span className="rounded-item bg-accent-blue/10 px-1.5 py-0.5 text-[10px] font-mono text-accent-blue">:{c.port}</span>
+              )}
+            </div>
+
+            <div className="mt-2 flex items-center justify-end gap-2">
+              {c.status === "stopped" && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); startContainer(c.id); }}
+                  title="Run container"
+                  className="flex items-center gap-1 rounded-item border border-border-default px-2.5 py-1 text-[12px] font-medium text-text-primary hover:bg-bg-surface-hover transition-colors duration-200"
+                >
+                  <Icon name="play_arrow" size={14} />
+                  Run
+                </button>
+              )}
+              {c.status === "running" && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleConnectToContainer(c); }}
+                  title="Connect to database"
+                  className="flex items-center gap-1 rounded-item border border-white/10 bg-white/10 px-2.5 py-1 text-[12px] font-medium text-text-primary hover:bg-white/15 transition-colors duration-200"
+                >
+                  <Icon name="database" size={13} />
+                  {connectingContainerId === c.id ? "Connecting..." : "Connect"}
+                </button>
+              )}
             </div>
           </div>
         ))}

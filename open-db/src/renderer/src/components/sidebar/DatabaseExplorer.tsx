@@ -6,7 +6,60 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Icon, ContextMenu } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 import { clsx } from "clsx";
-import type { TableNode, ColumnNode, ContextMenuItem } from "@/types";
+import type { TableNode, ColumnNode, ContextMenuItem, IndexNode } from "@/types";
+
+function qIdent(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+function mapIndexRows(rows: Record<string, unknown>[]): IndexNode[] {
+  return rows.map((r) => {
+    const rawCols = r.columns;
+    const cols = Array.isArray(rawCols) ? rawCols.map((v) => String(v)) : [];
+    return {
+      name: String(r.name ?? ""),
+      columns: cols,
+      isUnique: Boolean(r.isUnique),
+      isPrimary: Boolean(r.isPrimary),
+      type: String(r.type ?? "btree"),
+      definition: String(r.definition ?? ""),
+    };
+  });
+}
+
+async function fetchIndexesWithFallback(connId: string, schema: string, table: string): Promise<IndexNode[]> {
+  try {
+    const direct = await window.electronAPI.database.getIndexes(connId, schema, table);
+    return direct;
+  } catch {
+    // Fall through to SQL fallback for resilience.
+  }
+
+  const sql = `
+    SELECT
+      idx.indexname AS name,
+      COALESCE(array_agg(pg_get_indexdef(i.oid, gs.k, true) ORDER BY gs.k) FILTER (WHERE gs.k IS NOT NULL), '{}'::text[]) AS columns,
+      pi.indisunique AS "isUnique",
+      pi.indisprimary AS "isPrimary",
+      COALESCE(am.amname, 'btree') AS type,
+      idx.indexdef AS definition
+    FROM pg_indexes idx
+    JOIN pg_class t ON t.relname = idx.tablename
+    JOIN pg_namespace tn ON tn.oid = t.relnamespace AND tn.nspname = idx.schemaname
+    JOIN pg_class i ON i.relname = idx.indexname
+    JOIN pg_namespace ins ON ins.oid = i.relnamespace AND ins.nspname = idx.schemaname
+    JOIN pg_index pi ON pi.indexrelid = i.oid AND pi.indrelid = t.oid
+    LEFT JOIN pg_am am ON am.oid = i.relam
+    LEFT JOIN LATERAL generate_series(1, pi.indnatts) AS gs(k) ON true
+    WHERE idx.schemaname = ${qIdent(schema)}
+      AND idx.tablename = ${qIdent(table)}
+    GROUP BY idx.indexname, pi.indisunique, pi.indisprimary, am.amname, idx.indexdef
+    ORDER BY idx.indexname
+  `;
+
+  const raw = await window.electronAPI.database.executeQuery(connId, sql) as { rows: Record<string, unknown>[] };
+  return mapIndexRows(raw.rows);
+}
 
 function dataTypeIcon(dt: string): { icon: string; color: string } {
   const t = dt.toLowerCase();
@@ -40,11 +93,29 @@ function ColumnItem({ col }: { col: ColumnNode }) {
   );
 }
 
+function IndexItem({ idx }: { idx: IndexNode }) {
+  return (
+    <div
+      className="flex items-center gap-1.5 pl-14 pr-2 py-1 text-[11px] text-text-secondary glass-row mx-1 cursor-default select-none"
+      style={{ width: 'calc(100% - 8px)', paddingLeft: '3.5rem' }}
+      title={idx.definition}
+    >
+      <Icon name={idx.isPrimary ? "key" : "sort"} size={12} className={idx.isPrimary ? "text-syntax-function" : "text-accent-blue"} />
+      <span className="truncate">{idx.name}</span>
+      <span className="ml-auto text-[10px] text-text-muted truncate max-w-[160px]">
+        {idx.columns.length > 0 ? idx.columns.join(", ") : "Expression"}
+      </span>
+    </div>
+  );
+}
+
 // ── Table item (expandable → columns) with right-click context menu ──
 function TableItem({ connId, table }: { connId: string; table: TableNode }) {
   const [open, setOpen] = useState(false);
   const [columns, setColumns] = useState<ColumnNode[]>([]);
+  const [indexes, setIndexes] = useState<IndexNode[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingIndexes, setLoadingIndexes] = useState(false);
   const addTab = useAppStore((s) => s.openTableTab);
   const openStructureTab = useAppStore((s) => s.openStructureTab);
   const addNewFileTab = useAppStore((s) => s.addNewFileTab);
@@ -55,18 +126,28 @@ function TableItem({ connId, table }: { connId: string; table: TableNode }) {
   const toggle = useCallback(async () => {
     const next = !open;
     setOpen(next);
-    if (next && columns.length === 0) {
+    if (next && (columns.length === 0 || indexes.length === 0)) {
       setLoading(true);
+      setLoadingIndexes(true);
       try {
-        const cols = await window.electronAPI.database.getColumns(connId, table.schema, table.name);
+        const [cols, idxList] = await Promise.all([
+          columns.length === 0
+            ? window.electronAPI.database.getColumns(connId, table.schema, table.name)
+            : Promise.resolve(columns),
+          indexes.length === 0
+            ? fetchIndexesWithFallback(connId, table.schema, table.name)
+            : Promise.resolve(indexes),
+        ]);
         setColumns(cols);
+        setIndexes(idxList);
       } catch (err) {
-        console.error("Failed to fetch columns", err);
+        console.error("Failed to fetch table details", err);
       } finally {
         setLoading(false);
+        setLoadingIndexes(false);
       }
     }
-  }, [open, columns.length, connId, table]);
+  }, [open, columns, indexes, connId, table]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -223,9 +304,25 @@ function TableItem({ connId, table }: { connId: string; table: TableNode }) {
           {loading && (
             <div className="pl-14 text-[10px] text-text-muted py-1">Loading columns…</div>
           )}
+          {!loading && (
+            <div className="pl-14 pr-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-text-muted">Columns</div>
+          )}
           {columns.map((col) => (
             <ColumnItem key={col.name} col={col} />
           ))}
+          {loadingIndexes && (
+            <div className="pl-14 text-[10px] text-text-muted py-1">Loading indexes…</div>
+          )}
+          {!loadingIndexes && (
+            <div className="pl-14 pr-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-text-muted">Indexes</div>
+          )}
+          {indexes.length > 0 ? (
+            indexes.map((idx) => <IndexItem key={idx.name} idx={idx} />)
+          ) : (
+            !loadingIndexes && (
+              <div className="pl-14 text-[10px] text-text-muted py-1 italic">No indexes</div>
+            )
+          )}
         </div>
       )}
       {/* Context menu */}

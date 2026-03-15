@@ -23,19 +23,24 @@ export function OpenEditors() {
 
   return (
     <details className="group" open>
-      <summary className="glass-row mx-1 cursor-pointer select-none text-text-primary focus:outline-none" style={{ width: 'calc(100% - 8px)' }}>
+      <summary
+        className="mx-1 flex items-center rounded-item border-b border-border-subtle bg-white/[0.02] px-1.5 py-1 cursor-pointer select-none text-text-primary focus:outline-none"
+        style={{ width: "calc(100% - 8px)" }}
+      >
         <Icon
           name="chevron_right"
-          size={16}
-          className="transition-transform group-open:rotate-90 text-text-primary"
+          size={14}
+          className="transition-transform group-open:rotate-90 text-text-muted"
         />
-        <span className="text-[11px] font-bold uppercase ml-0.5 tracking-[0.5px]">Open Editors</span>
+        <span className="text-[11px] font-bold uppercase ml-1 tracking-[0.06em] text-text-secondary">
+          Open Editors
+        </span>
         <button
           onClick={(e) => {
             e.preventDefault();
             setShowInput(!showInput);
           }}
-          className="ml-auto mr-2 text-text-secondary hover:text-text-primary"
+          className="ml-auto mr-1 rounded-item p-1 text-text-muted hover:text-text-primary hover:bg-bg-surface-hover transition-colors duration-200"
           title="New file"
         >
           <Icon name="note_add" size={14} />
@@ -43,10 +48,10 @@ export function OpenEditors() {
       </summary>
 
       {showInput && (
-        <div className="px-3 py-1.5">
+        <div className="px-3 py-2">
           <input
             autoFocus
-            className="w-full rounded-item bg-bg-input border border-[#3c3f41] px-2 py-0.5 text-xs text-text-primary outline-none focus:border-accent-blue transition-colors duration-200"
+            className="w-full rounded-item bg-bg-input border border-border-default px-2 py-1 text-xs text-text-primary outline-none focus:border-accent-blue transition-colors duration-200"
             placeholder="filename.sql"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -59,9 +64,9 @@ export function OpenEditors() {
         </div>
       )}
 
-      <div className="flex flex-col text-[13px] font-mono">
+      <div className="flex flex-col text-[13px] font-mono pb-1">
         {tabs.length === 0 && (
-          <div className="text-text-muted text-[11px] py-2 pl-4">
+          <div className="text-text-muted text-[11px] py-2.5 pl-4">
             No open files. Click + to create one.
           </div>
         )}
@@ -72,21 +77,21 @@ export function OpenEditors() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={clsx(
-                "glass-row mx-1 gap-2 px-4 py-[3px] cursor-pointer text-left group/file",
+                "mx-1 flex items-center gap-2 border-l-2 border-transparent rounded-item px-3 py-1.5 cursor-pointer text-left group/file transition-colors duration-150",
                 isActive
-                  ? "selected text-white"
-                  : "text-text-primary"
+                  ? "bg-accent-blue/10 border-l-accent-blue text-text-bright"
+                  : "text-text-primary hover:bg-bg-surface-hover"
               )}
               style={{ width: 'calc(100% - 8px)' }}
             >
               <Icon name={tab.icon} size={14} className={tab.iconColor} />
               <span className="truncate text-xs flex-1">{tab.title}</span>
               {tab.isModified && (
-                <span className="text-[10px] text-text-secondary">M</span>
+                <span className="text-[10px] text-text-secondary font-semibold">M</span>
               )}
               <span
                 onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
-                className="opacity-0 group-hover/file:opacity-100 text-text-secondary hover:text-status-red cursor-pointer"
+                className="opacity-0 group-hover/file:opacity-100 rounded-item p-0.5 text-text-secondary hover:text-status-red hover:bg-status-red/10 cursor-pointer transition-colors duration-200"
                 title="Close"
               >
                 <Icon name="close" size={12} />

@@ -299,6 +299,7 @@ App → MainLayout
 - Editor: SQL syntax highlighting, tab management, Ctrl+Enter execute, line numbers, Ctrl+S save
 - Results: table with type icons, minimize/maximize, error display, Ctrl+F search/filter, resizable columns (drag col-resize)
 - Database Explorer context menu: `View Data` now opens the table query tab and auto-executes the SELECT to populate results immediately
+- Database Explorer table expansion: now shows both Columns and Indexes in table details
 - Persistence: connections + query history saved to SQLite, auto-reconnect
 - Connections UX: reconnect uses inline password input in sidebar (no browser prompt/alert); after successful connect with no open tabs, app opens a starter SQL tab
 - Bottom panel: drag-to-resize (150-600px), terminal sessions
@@ -361,4 +362,10 @@ npm run dev
 
 ---
 
-*Last updated: Mar 2026 — Added MySQL GUI support in main DB service (connect/test/query/introspection) and type-aware IPC flow; improved GUI-first connection flow with inline password reconnect guidance*
+*Last updated: Mar 2026*
+
+- `View Data` in Database Explorer now auto-runs the table query.
+- Table details show indexes.
+- Glass widgets use an explicit dark background for reliable text contrast.
+- Added MySQL GUI support in the main DB service (connect/test/query/introspection) with type-aware IPC flow.
+- Improved GUI-first connection flow with inline password reconnect guidance.

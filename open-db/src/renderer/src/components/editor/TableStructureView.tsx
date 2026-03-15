@@ -15,6 +15,61 @@ interface TableStructureViewProps {
   tableName: string
 }
 
+function qIdent(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`
+}
+
+function mapIndexRows(rows: Record<string, unknown>[]): IndexNode[] {
+  return rows.map((r) => {
+    const rawCols = r.columns
+    const cols = Array.isArray(rawCols)
+      ? rawCols.map((v) => String(v))
+      : []
+    return {
+      name: String(r.name ?? ''),
+      columns: cols,
+      isUnique: Boolean(r.isUnique),
+      isPrimary: Boolean(r.isPrimary),
+      type: String(r.type ?? 'btree'),
+      definition: String(r.definition ?? ''),
+    }
+  })
+}
+
+async function fetchIndexesWithFallback(connId: string, schema: string, tableName: string): Promise<IndexNode[]> {
+  try {
+    const direct = await window.electronAPI.database.getIndexes(connId, schema, tableName)
+    if (direct.length > 0) return direct
+  } catch {
+    // Fall through to SQL fallback for resilience.
+  }
+
+  const sql = `
+    SELECT
+      idx.indexname AS name,
+      COALESCE(array_agg(pg_get_indexdef(i.oid, gs.k, true) ORDER BY gs.k) FILTER (WHERE gs.k IS NOT NULL), '{}'::text[]) AS columns,
+      pi.indisunique AS "isUnique",
+      pi.indisprimary AS "isPrimary",
+      COALESCE(am.amname, 'btree') AS type,
+      idx.indexdef AS definition
+    FROM pg_indexes idx
+    JOIN pg_class t ON t.relname = idx.tablename
+    JOIN pg_namespace tn ON tn.oid = t.relnamespace AND tn.nspname = idx.schemaname
+    JOIN pg_class i ON i.relname = idx.indexname
+    JOIN pg_namespace ins ON ins.oid = i.relnamespace AND ins.nspname = idx.schemaname
+    JOIN pg_index pi ON pi.indexrelid = i.oid AND pi.indrelid = t.oid
+    LEFT JOIN pg_am am ON am.oid = i.relam
+    LEFT JOIN LATERAL generate_series(1, pi.indnatts) AS gs(k) ON true
+    WHERE idx.schemaname = ${qIdent(schema)}
+      AND idx.tablename = ${qIdent(tableName)}
+    GROUP BY idx.indexname, pi.indisunique, pi.indisprimary, am.amname, idx.indexdef
+    ORDER BY idx.indexname
+  `
+
+  const raw = await window.electronAPI.database.executeQuery(connId, sql) as { rows: Record<string, unknown>[] }
+  return mapIndexRows(raw.rows)
+}
+
 function dataTypeIcon(dt: string): { icon: string; color: string } {
   const t = dt.toLowerCase()
   if (t.includes('int') || t.includes('numeric') || t.includes('float') || t.includes('double') || t.includes('decimal') || t === 'serial' || t === 'bigserial')
@@ -27,6 +82,24 @@ function dataTypeIcon(dt: string): { icon: string; color: string } {
     return { icon: 'abc', color: 'text-syntax-keyword' }
   if (t.includes('bytea') || t.includes('blob')) return { icon: 'memory', color: 'text-text-secondary' }
   return { icon: 'abc', color: 'text-syntax-keyword' }
+}
+
+function getEmptyIndexColumnsLabel(idx: IndexNode): { label: string; title: string } {
+  const maybeExpression = (idx as IndexNode & { isExpression?: boolean; expression?: string }).isExpression === true
+    || Boolean((idx as IndexNode & { isExpression?: boolean; expression?: string }).expression)
+    || String(idx.type ?? '').toLowerCase() === 'expression'
+
+  if (maybeExpression) {
+    return {
+      label: 'Expression index',
+      title: 'This index is marked as expression-based by metadata.'
+    }
+  }
+
+  return {
+    label: 'No columns',
+    title: 'No indexed columns were returned. Possible causes: expression-based index, parsing mismatch, or API inconsistency.'
+  }
 }
 
 // â”€â”€ Columns Tab â”€â”€
@@ -134,11 +207,14 @@ function ColumnsView({ columns, loading, onRefresh }: { columns: ColumnNode[]; l
 }
 
 // â”€â”€ Indexes Tab â”€â”€
-function IndexesView({ indexes, loading }: { indexes: IndexNode[]; loading: boolean }) {
+function IndexesView({ indexes, loading, onRefresh }: { indexes: IndexNode[]; loading: boolean; onRefresh: () => void }) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between px-6 py-4">
         <h2 className="text-sm font-semibold text-text-primary">Indexes</h2>
+        <button onClick={onRefresh} className="p-1 text-text-secondary hover:text-text-primary hover:bg-bg-surface-hover rounded transition-colors" title="Refresh">
+          <Icon name="refresh" size={18} />
+        </button>
       </div>
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-text-muted text-xs">
@@ -159,6 +235,7 @@ function IndexesView({ indexes, loading }: { indexes: IndexNode[]; loading: bool
                 <th className="text-center px-4 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider w-20">Unique</th>
                 <th className="text-center px-4 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider w-20">Primary</th>
                 <th className="text-left px-4 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider">Type</th>
+                <th className="text-left px-4 py-2.5 text-text-secondary font-semibold text-[11px] uppercase tracking-wider">Definition</th>
               </tr>
             </thead>
             <tbody>
@@ -175,6 +252,11 @@ function IndexesView({ indexes, loading }: { indexes: IndexNode[]; loading: bool
                       {idx.columns.map((col) => (
                         <span key={col} className="px-1.5 py-0.5 bg-[#1a1c20] rounded text-[10px] text-syntax-param font-mono">{col}</span>
                       ))}
+                      {idx.columns.length === 0 && (
+                        <span className="text-[10px] text-text-muted italic" title={getEmptyIndexColumnsLabel(idx).title}>
+                          {getEmptyIndexColumnsLabel(idx).label}
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-center">
@@ -185,6 +267,11 @@ function IndexesView({ indexes, loading }: { indexes: IndexNode[]; loading: bool
                   </td>
                   <td className="px-4 py-2.5">
                     <span className="text-text-muted font-mono text-[11px]">{idx.type}</span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <span className="text-text-muted font-mono text-[11px] block max-w-[420px] truncate" title={idx.definition}>
+                      {idx.definition}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -197,11 +284,14 @@ function IndexesView({ indexes, loading }: { indexes: IndexNode[]; loading: bool
 }
 
 // â”€â”€ Relations Tab â”€â”€
-function RelationsView({ relations, loading }: { relations: RelationNode[]; loading: boolean }) {
+function RelationsView({ relations, loading, onRefresh }: { relations: RelationNode[]; loading: boolean; onRefresh: () => void }) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between px-6 py-4">
         <h2 className="text-sm font-semibold text-text-primary">Relations</h2>
+        <button onClick={onRefresh} className="p-1 text-text-secondary hover:text-text-primary hover:bg-bg-surface-hover rounded transition-colors" title="Refresh">
+          <Icon name="refresh" size={18} />
+        </button>
       </div>
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-text-muted text-xs">
@@ -258,11 +348,14 @@ function RelationsView({ relations, loading }: { relations: RelationNode[]; load
 }
 
 // â”€â”€ Triggers Tab â”€â”€
-function TriggersView({ triggers, loading }: { triggers: TriggerNode[]; loading: boolean }) {
+function TriggersView({ triggers, loading, onRefresh }: { triggers: TriggerNode[]; loading: boolean; onRefresh: () => void }) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between px-6 py-4">
         <h2 className="text-sm font-semibold text-text-primary">Triggers</h2>
+        <button onClick={onRefresh} className="p-1 text-text-secondary hover:text-text-primary hover:bg-bg-surface-hover rounded transition-colors" title="Refresh">
+          <Icon name="refresh" size={18} />
+        </button>
       </div>
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-text-muted text-xs">
@@ -339,19 +432,7 @@ export function TableStructureView({ connId, schema, tableName }: TableStructure
   const fetchIndexes = useCallback(async () => {
     setLoadingIdx(true)
     try {
-      const raw = await window.electronAPI.database.executeQuery(connId,
-        `SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = '${schema}' AND tablename = '${tableName}' ORDER BY indexname`
-      ) as { rows: Record<string, unknown>[]; columns: string[] }
-      const idxList: IndexNode[] = raw.rows.map((r) => {
-        const def = String(r.indexdef ?? '')
-        const isPrimary = def.includes('PRIMARY KEY')
-        const isUnique = def.includes('UNIQUE') || isPrimary
-        // Extract columns from indexdef: ... (col1, col2)
-        const colMatch = def.match(/\(([^)]+)\)/)
-        const cols = colMatch ? colMatch[1].split(',').map((c) => c.trim()) : []
-        const type = def.includes('USING btree') ? 'btree' : def.includes('USING hash') ? 'hash' : def.includes('USING gin') ? 'gin' : def.includes('USING gist') ? 'gist' : 'btree'
-        return { name: String(r.indexname), columns: cols, isUnique, isPrimary, type }
-      })
+      const idxList = await fetchIndexesWithFallback(connId, schema, tableName)
       setIndexes(idxList)
     } catch (err) {
       console.error('Failed to fetch indexes', err)
@@ -363,30 +444,7 @@ export function TableStructureView({ connId, schema, tableName }: TableStructure
   const fetchRelations = useCallback(async () => {
     setLoadingRel(true)
     try {
-      const raw = await window.electronAPI.database.executeQuery(connId,
-        `SELECT
-          tc.constraint_name,
-          kcu.column_name,
-          ccu.table_schema AS foreign_table_schema,
-          ccu.table_name AS foreign_table_name,
-          ccu.column_name AS foreign_column_name,
-          rc.update_rule,
-          rc.delete_rule
-        FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
-        JOIN information_schema.constraint_column_usage ccu ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
-        JOIN information_schema.referential_constraints rc ON rc.constraint_name = tc.constraint_name AND rc.constraint_schema = tc.table_schema
-        WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = '${schema}' AND tc.table_name = '${tableName}'`
-      ) as { rows: Record<string, unknown>[] }
-      const rels: RelationNode[] = raw.rows.map((r) => ({
-        name: String(r.constraint_name),
-        sourceColumn: String(r.column_name),
-        targetSchema: String(r.foreign_table_schema),
-        targetTable: String(r.foreign_table_name),
-        targetColumn: String(r.foreign_column_name),
-        onUpdate: String(r.update_rule),
-        onDelete: String(r.delete_rule),
-      }))
+      const rels = await window.electronAPI.database.getRelations(connId, schema, tableName)
       setRelations(rels)
     } catch (err) {
       console.error('Failed to fetch relations', err)
@@ -398,18 +456,7 @@ export function TableStructureView({ connId, schema, tableName }: TableStructure
   const fetchTriggers = useCallback(async () => {
     setLoadingTrig(true)
     try {
-      const raw = await window.electronAPI.database.executeQuery(connId,
-        `SELECT trigger_name, event_manipulation, action_timing, action_statement
-        FROM information_schema.triggers
-        WHERE event_object_schema = '${schema}' AND event_object_table = '${tableName}'
-        ORDER BY trigger_name`
-      ) as { rows: Record<string, unknown>[] }
-      const trigs: TriggerNode[] = raw.rows.map((r) => ({
-        name: String(r.trigger_name),
-        event: String(r.event_manipulation),
-        timing: String(r.action_timing),
-        definition: String(r.action_statement),
-      }))
+      const trigs = await window.electronAPI.database.getTriggers(connId, schema, tableName)
       setTriggers(trigs)
     } catch (err) {
       console.error('Failed to fetch triggers', err)
@@ -425,10 +472,10 @@ export function TableStructureView({ connId, schema, tableName }: TableStructure
 
   // Load tab data lazily
   useEffect(() => {
-    if (activeTab === 'indexes' && indexes.length === 0 && !loadingIdx) fetchIndexes()
-    if (activeTab === 'relations' && relations.length === 0 && !loadingRel) fetchRelations()
-    if (activeTab === 'triggers' && triggers.length === 0 && !loadingTrig) fetchTriggers()
-  }, [activeTab, indexes.length, relations.length, triggers.length, loadingIdx, loadingRel, loadingTrig, fetchIndexes, fetchRelations, fetchTriggers])
+    if (activeTab === 'indexes') fetchIndexes()
+    if (activeTab === 'relations') fetchRelations()
+    if (activeTab === 'triggers') fetchTriggers()
+  }, [activeTab, fetchIndexes, fetchRelations, fetchTriggers])
 
   const tabs: { id: StructureTab; label: string; icon: string }[] = [
     { id: 'columns', label: 'Columns', icon: 'view_column' },
@@ -463,9 +510,9 @@ export function TableStructureView({ connId, schema, tableName }: TableStructure
 
       {/* Tab content */}
       {activeTab === 'columns' && <ColumnsView columns={columns} loading={loadingCols} onRefresh={fetchColumns} />}
-      {activeTab === 'indexes' && <IndexesView indexes={indexes} loading={loadingIdx} />}
-      {activeTab === 'relations' && <RelationsView relations={relations} loading={loadingRel} />}
-      {activeTab === 'triggers' && <TriggersView triggers={triggers} loading={loadingTrig} />}
+      {activeTab === 'indexes' && <IndexesView indexes={indexes} loading={loadingIdx} onRefresh={fetchIndexes} />}
+      {activeTab === 'relations' && <RelationsView relations={relations} loading={loadingRel} onRefresh={fetchRelations} />}
+      {activeTab === 'triggers' && <TriggersView triggers={triggers} loading={loadingTrig} onRefresh={fetchTriggers} />}
     </div>
   )
 }

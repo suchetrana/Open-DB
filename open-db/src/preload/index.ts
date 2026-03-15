@@ -157,7 +157,16 @@ export const electronAPI = {
       ipcRenderer.invoke('db:get-tables', connectionId, schema),
 
     getColumns: (connectionId: string, schema: string, table: string): Promise<{ name: string; dataType: string; nullable: boolean; defaultValue: string | null; isPrimaryKey: boolean }[]> =>
-      ipcRenderer.invoke('db:get-columns', connectionId, schema, table)
+      ipcRenderer.invoke('db:get-columns', connectionId, schema, table),
+
+    getIndexes: (connectionId: string, schema: string, table: string): Promise<{ name: string; columns: string[]; isUnique: boolean; isPrimary: boolean; type: string; definition: string }[]> =>
+      ipcRenderer.invoke('db:get-indexes', connectionId, schema, table),
+
+    getRelations: (connectionId: string, schema: string, table: string): Promise<{ name: string; sourceColumn: string; targetSchema: string; targetTable: string; targetColumn: string; onUpdate: string; onDelete: string }[]> =>
+      ipcRenderer.invoke('db:get-relations', connectionId, schema, table),
+
+    getTriggers: (connectionId: string, schema: string, table: string): Promise<{ name: string; event: string; timing: string; definition: string }[]> =>
+      ipcRenderer.invoke('db:get-triggers', connectionId, schema, table)
   },
 
   // ── Window ──

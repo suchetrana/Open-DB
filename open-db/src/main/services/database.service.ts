@@ -36,6 +36,32 @@ export interface ColumnInfo {
   isPrimaryKey: boolean
 }
 
+export interface IndexInfo {
+  name: string
+  columns: string[]
+  isUnique: boolean
+  isPrimary: boolean
+  type: string
+  definition: string
+}
+
+export interface RelationInfo {
+  name: string
+  sourceColumn: string
+  targetSchema: string
+  targetTable: string
+  targetColumn: string
+  onUpdate: string
+  onDelete: string
+}
+
+export interface TriggerInfo {
+  name: string
+  event: string
+  timing: string
+  definition: string
+}
+
 interface ConnectionConfig {
   type: DatabaseDriver
   host: string
@@ -332,6 +358,190 @@ class DatabaseService {
       [schema, table]
     )
     return res.rows as ColumnInfo[]
+  }
+
+  async getIndexes(connectionId: string, schema: string, table: string): Promise<IndexInfo[]> {
+    const active = this.pools.get(connectionId)
+    if (!active) throw new Error(`No pool for ${connectionId}`)
+
+    if (active.type === 'mysql') {
+      const pool = active.pool as MySqlPool
+      const [rows] = await pool.query(
+        `SELECT
+           index_name as name,
+           GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',') as columnsCsv,
+           (non_unique = 0) as isUnique,
+           (index_name = 'PRIMARY') as isPrimary,
+           index_type as type,
+           CONCAT(index_name, ' ON ', table_name) as definition
+         FROM information_schema.statistics
+         WHERE table_schema = ? AND table_name = ?
+         GROUP BY index_name, non_unique, index_type, table_name
+         ORDER BY index_name`,
+        [schema, table]
+      )
+      return (rows as Array<{ name: string; columnsCsv: string | null; isUnique: unknown; isPrimary: unknown; type: string; definition: string }>).map((r: { name: string; columnsCsv: string | null; isUnique: unknown; isPrimary: unknown; type: string; definition: string }) => ({
+        name: String(r.name),
+        columns: r.columnsCsv ? String(r.columnsCsv).split(',').map((c) => c.trim()).filter(Boolean) : [],
+        isUnique: Boolean(r.isUnique),
+        isPrimary: Boolean(r.isPrimary),
+        type: String(r.type ?? 'btree'),
+        definition: String(r.definition ?? ''),
+      }))
+    }
+
+    const pool = active.pool as Pool
+
+    const res = await pool.query(
+      `SELECT
+         idx.indexname AS name,
+         COALESCE(
+           array_agg(pg_get_indexdef(i.oid, gs.k, true) ORDER BY gs.k) FILTER (WHERE gs.k IS NOT NULL),
+           '{}'::text[]
+         ) AS columns,
+         pi.indisunique AS "isUnique",
+         pi.indisprimary AS "isPrimary",
+         COALESCE(am.amname, 'btree') AS type,
+         idx.indexdef AS definition
+       FROM pg_indexes idx
+       JOIN pg_class t ON t.relname = idx.tablename
+       JOIN pg_namespace tn ON tn.oid = t.relnamespace AND tn.nspname = idx.schemaname
+       JOIN pg_class i ON i.relname = idx.indexname
+       JOIN pg_namespace ins ON ins.oid = i.relnamespace AND ins.nspname = idx.schemaname
+       JOIN pg_index pi ON pi.indexrelid = i.oid AND pi.indrelid = t.oid
+       LEFT JOIN pg_am am ON am.oid = i.relam
+       LEFT JOIN LATERAL generate_series(1, pi.indnatts) AS gs(k) ON true
+       WHERE idx.schemaname = $1
+         AND idx.tablename = $2
+       GROUP BY idx.indexname, pi.indisunique, pi.indisprimary, am.amname, idx.indexdef
+       ORDER BY idx.indexname`,
+      [schema, table]
+    )
+
+    return res.rows as IndexInfo[]
+  }
+
+  async getRelations(connectionId: string, schema: string, table: string): Promise<RelationInfo[]> {
+    const active = this.pools.get(connectionId)
+    if (!active) throw new Error(`No pool for ${connectionId}`)
+
+    if (active.type === 'mysql') {
+      const pool = active.pool as MySqlPool
+      const [rows] = await pool.query(
+        `SELECT
+           rc.constraint_name AS name,
+           kcu.column_name AS sourceColumn,
+           kcu.referenced_table_schema AS targetSchema,
+           kcu.referenced_table_name AS targetTable,
+           kcu.referenced_column_name AS targetColumn,
+           rc.update_rule AS onUpdate,
+           rc.delete_rule AS onDelete
+         FROM information_schema.referential_constraints rc
+         JOIN information_schema.key_column_usage kcu
+           ON rc.constraint_name = kcu.constraint_name
+          AND rc.constraint_schema = kcu.constraint_schema
+         WHERE kcu.table_schema = ?
+           AND kcu.table_name = ?
+         ORDER BY rc.constraint_name, kcu.ordinal_position`,
+        [schema, table]
+      )
+      return (rows as Array<RelationInfo>).map((r: RelationInfo) => ({
+        name: String(r.name),
+        sourceColumn: String((r as unknown as Record<string, unknown>).sourceColumn ?? ''),
+        targetSchema: String((r as unknown as Record<string, unknown>).targetSchema ?? ''),
+        targetTable: String((r as unknown as Record<string, unknown>).targetTable ?? ''),
+        targetColumn: String((r as unknown as Record<string, unknown>).targetColumn ?? ''),
+        onUpdate: String((r as unknown as Record<string, unknown>).onUpdate ?? ''),
+        onDelete: String((r as unknown as Record<string, unknown>).onDelete ?? ''),
+      }))
+    }
+
+    const pool = active.pool as Pool
+
+    const res = await pool.query(
+      `SELECT
+         con.conname AS name,
+         src_att.attname AS "sourceColumn",
+         ref_ns.nspname AS "targetSchema",
+         ref_tbl.relname AS "targetTable",
+         ref_att.attname AS "targetColumn",
+         CASE con.confupdtype
+           WHEN 'a' THEN 'NO ACTION'
+           WHEN 'r' THEN 'RESTRICT'
+           WHEN 'c' THEN 'CASCADE'
+           WHEN 'n' THEN 'SET NULL'
+           WHEN 'd' THEN 'SET DEFAULT'
+           ELSE 'NO ACTION'
+         END AS "onUpdate",
+         CASE con.confdeltype
+           WHEN 'a' THEN 'NO ACTION'
+           WHEN 'r' THEN 'RESTRICT'
+           WHEN 'c' THEN 'CASCADE'
+           WHEN 'n' THEN 'SET NULL'
+           WHEN 'd' THEN 'SET DEFAULT'
+           ELSE 'NO ACTION'
+         END AS "onDelete"
+       FROM pg_constraint con
+       JOIN pg_class src_tbl ON src_tbl.oid = con.conrelid
+       JOIN pg_namespace src_ns ON src_ns.oid = src_tbl.relnamespace
+       JOIN pg_class ref_tbl ON ref_tbl.oid = con.confrelid
+       JOIN pg_namespace ref_ns ON ref_ns.oid = ref_tbl.relnamespace
+       JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS src_key(attnum, ord) ON true
+       JOIN LATERAL unnest(con.confkey) WITH ORDINALITY AS ref_key(attnum, ord) ON ref_key.ord = src_key.ord
+       JOIN pg_attribute src_att ON src_att.attrelid = src_tbl.oid AND src_att.attnum = src_key.attnum
+       JOIN pg_attribute ref_att ON ref_att.attrelid = ref_tbl.oid AND ref_att.attnum = ref_key.attnum
+       WHERE con.contype = 'f'
+         AND src_ns.nspname = $1
+         AND src_tbl.relname = $2
+       ORDER BY con.conname, src_key.ord`,
+      [schema, table]
+    )
+
+    return res.rows as RelationInfo[]
+  }
+
+  async getTriggers(connectionId: string, schema: string, table: string): Promise<TriggerInfo[]> {
+    const active = this.pools.get(connectionId)
+    if (!active) throw new Error(`No pool for ${connectionId}`)
+
+    if (active.type === 'mysql') {
+      const pool = active.pool as MySqlPool
+      const [rows] = await pool.query(
+        `SELECT
+           trigger_name AS name,
+           event_manipulation AS event,
+           action_timing AS timing,
+           action_statement AS definition
+         FROM information_schema.triggers
+         WHERE trigger_schema = ?
+           AND event_object_table = ?
+         ORDER BY trigger_name`,
+        [schema, table]
+      )
+      return (rows as Array<TriggerInfo>).map((r: TriggerInfo) => ({
+        name: String(r.name),
+        event: String((r as unknown as Record<string, unknown>).event ?? ''),
+        timing: String((r as unknown as Record<string, unknown>).timing ?? ''),
+        definition: String((r as unknown as Record<string, unknown>).definition ?? ''),
+      }))
+    }
+
+    const pool = active.pool as Pool
+
+    const res = await pool.query(
+      `SELECT
+         trigger_name AS name,
+         event_manipulation AS event,
+         action_timing AS timing,
+         action_statement AS definition
+       FROM information_schema.triggers
+       WHERE event_object_schema = $1
+         AND event_object_table = $2
+       ORDER BY trigger_name`,
+      [schema, table]
+    )
+
+    return res.rows as TriggerInfo[]
   }
 }
 

@@ -75,6 +75,7 @@ export interface IndexNode {
   isUnique: boolean;
   isPrimary: boolean;
   type: string;
+  definition: string;
 }
 
 export interface RelationNode {

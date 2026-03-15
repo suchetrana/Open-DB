@@ -99,4 +99,16 @@ export function registerDatabaseHandlers(): void {
   ipcMain.handle('db:get-columns', async (_e, connectionId: string, schema: string, table: string) => {
     return databaseService.getColumns(connectionId, schema, table)
   })
+
+  ipcMain.handle('db:get-indexes', async (_e, connectionId: string, schema: string, table: string) => {
+    return databaseService.getIndexes(connectionId, schema, table)
+  })
+
+  ipcMain.handle('db:get-relations', async (_e, connectionId: string, schema: string, table: string) => {
+    return databaseService.getRelations(connectionId, schema, table)
+  })
+
+  ipcMain.handle('db:get-triggers', async (_e, connectionId: string, schema: string, table: string) => {
+    return databaseService.getTriggers(connectionId, schema, table)
+  })
 }
