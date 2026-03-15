@@ -105,8 +105,8 @@ open-db/
 │               │   ├── FileExplorer.tsx     # VS Code-style file tree with folder open/file open
 │               │   ├── OpenEditors.tsx      # Open tabs list with new-file input
 │               │   ├── DatabaseExplorer.tsx # db → schema → table → column tree (lazy-loaded)
-│               │   ├── DockerContainers.tsx # Container list + create form, polls every 5s
-│               │   └── Connections.tsx      # Saved connections + add form + auto-reconnect
+│               │   ├── DockerContainers.tsx # Container list + create form, polls every 5s, smart GUI connect attempts
+│               │   └── Connections.tsx      # Saved connections + add form + inline password reconnect (no prompt)
 │               ├── terminal/
 │               │   ├── BottomPanel.tsx      # Tabbed panel with drag-to-resize (150-600px)
 │               │   └── TerminalView.tsx     # Real xterm.js ↔ main process via IPC
@@ -291,14 +291,16 @@ App → MainLayout
 ## What Works vs. What's Stubbed
 
 ### ✅ Fully Working
-- PostgreSQL: connect, disconnect, query, introspect (databases/schemas/tables/columns), switch DB
+- PostgreSQL/MySQL: connect, disconnect, query, introspect (databases/schemas/tables/columns), switch DB
 - Docker: detect, list, create (postgres/mysql/mongo/redis), start/stop/remove containers
+- Docker connect flow: clicking Connect on running container creates/uses a saved connection, tries saved/default passwords, and redirects to schema/connections view for inline password entry if needed
 - Terminal: local shell (PowerShell/bash), Docker exec (psql/mysql/mongosh/redis-cli), multiple sessions
 - File Explorer: open folder dialog, recursive tree view, click-to-open files in editor, create new folder
 - Editor: SQL syntax highlighting, tab management, Ctrl+Enter execute, line numbers, Ctrl+S save
 - Results: table with type icons, minimize/maximize, error display, Ctrl+F search/filter, resizable columns (drag col-resize)
 - Database Explorer context menu: `View Data` now opens the table query tab and auto-executes the SELECT to populate results immediately
 - Persistence: connections + query history saved to SQLite, auto-reconnect
+- Connections UX: reconnect uses inline password input in sidebar (no browser prompt/alert); after successful connect with no open tabs, app opens a starter SQL tab
 - Bottom panel: drag-to-resize (150-600px), terminal sessions
 - Save button: Ctrl+S saves file to disk via `fs:save-file` IPC, marks tab as unmodified
 - Commit/Rollback: sends COMMIT/ROLLBACK SQL to the active database connection
@@ -309,7 +311,7 @@ App → MainLayout
 |------|--------|
 | **Sidebar views** | Each view shows different content: explorer (files+editors+docker), search (search/replace UI), schema (DB explorer+connections), runner (query actions), extensions (installed list). Search/replace not wired to backend yet |
 | **Terminal resize** | `resize()` is a no-op in TerminalService — needs `node-pty` |
-| **MySQL/MongoDB/Redis queries** | Docker containers work, terminal exec works, but editor query execution only works for PostgreSQL |
+| **MongoDB/Redis queries** | Docker containers work, terminal exec works, but editor query execution is SQL-only (PostgreSQL/MySQL) |
 | **Save button** | ✅ Wired — Ctrl+S saves current tab to disk if it has a `_filePath` |
 | **Commit/Rollback buttons** | ✅ Wired — sends COMMIT/ROLLBACK to active connection |
 | **Download/Filter results** | Buttons exist, no handlers |
@@ -359,4 +361,4 @@ npm run dev
 
 ---
 
-*Last updated: Mar 2026 — `View Data` in Database Explorer now auto-runs the table query and glass widgets now use an explicit dark background for reliable text contrast*
+*Last updated: Mar 2026 — Added MySQL GUI support in main DB service (connect/test/query/introspection) and type-aware IPC flow; improved GUI-first connection flow with inline password reconnect guidance*

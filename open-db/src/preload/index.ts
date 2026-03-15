@@ -106,13 +106,14 @@ export const electronAPI = {
   database: {
     connect: (
       connectionId: string,
+      type: 'postgres' | 'mysql',
       host: string,
       port: number,
       user: string,
       password: string,
       database: string
     ): Promise<{ ok: boolean }> =>
-      ipcRenderer.invoke('db:connect', connectionId, host, port, user, password, database),
+      ipcRenderer.invoke('db:connect', connectionId, type, host, port, user, password, database),
 
     disconnect: (connectionId: string): Promise<{ ok: boolean }> =>
       ipcRenderer.invoke('db:disconnect', connectionId),
@@ -121,13 +122,14 @@ export const electronAPI = {
       ipcRenderer.invoke('db:execute-query', connectionId, sql),
 
     testConnection: (
+      type: 'postgres' | 'mysql',
       host: string,
       port: number,
       user: string,
       password: string,
       database: string
     ): Promise<boolean> =>
-      ipcRenderer.invoke('db:test-connection', host, port, user, password, database),
+      ipcRenderer.invoke('db:test-connection', type, host, port, user, password, database),
 
     getConnections: (): Promise<unknown[]> =>
       ipcRenderer.invoke('db:get-connections'),

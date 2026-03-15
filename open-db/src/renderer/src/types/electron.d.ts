@@ -35,6 +35,7 @@ interface TerminalAPI {
 interface DatabaseAPI {
   connect(
     connectionId: string,
+    type: 'postgres' | 'mysql',
     host: string,
     port: number,
     user: string,
@@ -52,6 +53,7 @@ interface DatabaseAPI {
     executionTimeMs: number
   }>
   testConnection(
+    type: 'postgres' | 'mysql',
     host: string,
     port: number,
     user: string,
