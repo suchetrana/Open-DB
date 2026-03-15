@@ -361,4 +361,4 @@ npm run dev
 
 ---
 
-*Last updated: Mar 2026 — Added status bar zoom controls (`-`, slider, `+`, `%`) for inner UI scaling via new `window:get-zoom` / `window:set-zoom` IPC channels*
+*Last updated: Mar 2026 — Added MySQL GUI support in main DB service (connect/test/query/introspection) and type-aware IPC flow; improved GUI-first connection flow with inline password reconnect guidance*
