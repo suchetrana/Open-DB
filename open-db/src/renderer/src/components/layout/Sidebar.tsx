@@ -122,7 +122,7 @@ export function Sidebar() {
   return (
     <div className="w-full h-full bg-[#181a1d] flex flex-col overflow-y-auto">
       {/* Section title */}
-      <div className="h-9 flex items-center px-5 text-[10px] font-bold tracking-[1px] text-text-primary uppercase">
+      <div className="h-10 flex items-center px-5 text-[11px] font-bold tracking-[1px] text-text-primary uppercase">
         {VIEW_TITLES[activeSidebarView]}
       </div>
 

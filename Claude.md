@@ -27,12 +27,13 @@ Electron desktop app (VS Code-style UI) for database management with Docker inte
 │      ├── database.handlers.ts  (13 channels)        │
 │      ├── docker.handlers.ts    (7 channels)         │
 │      ├── terminal.handlers.ts  (4+2 channels)       │
-│      └── filesystem.handlers.ts (6 channels)        │
+│      ├── filesystem.handlers.ts (8 channels)        │
+│      └── window.handlers.ts    (4 channels)         │
 ├─────────────────────────────────────────────────────┤
 │ PRELOAD (src/preload/index.ts)                      │
 │  contextBridge.exposeInMainWorld('electronAPI', ...) │
-│  4 namespaces: docker, terminal, filesystem, database│
-│  31 methods total                                    │
+│  5 namespaces: docker, terminal, filesystem, database, window│
+│  38 methods total                                    │
 ├─────────────────────────────────────────────────────┤
 │ RENDERER (React SPA)                                │
 │  src/renderer/src/                                  │
@@ -60,18 +61,19 @@ open-db/
 │   ├── main/
 │   │   ├── index.ts                        # BrowserWindow 1400×900, contextIsolation, preload bridge
 │   │   ├── ipc/
-│   │   │   ├── index.ts                    # registerAllHandlers() — calls all 4 handler modules
+│   │   │   ├── index.ts                    # registerAllHandlers() — calls all 5 handler modules
 │   │   │   ├── database.handlers.ts        # db:* channels (connect, query, introspect)
 │   │   │   ├── docker.handlers.ts          # docker:* channels (CRUD containers)
 │   │   │   ├── terminal.handlers.ts        # terminal:* channels (create, write, resize, close)
-│   │   │   └── filesystem.handlers.ts      # fs:* channels (open folder/file, read/save, dir tree)
+│   │   │   ├── filesystem.handlers.ts      # fs:* channels (open folder/file, read/save, dir tree)
+│   │   │   └── window.handlers.ts          # window:* channels (maximize/restore + zoom)
 │   │   └── services/
 │   │       ├── database.service.ts         # pg Pool map, introspection via information_schema
 │   │       ├── docker.service.ts           # dockerode, images: postgres/mysql/mongo/redis
 │   │       ├── storage.service.ts          # sql.js at {userData}/opendb.sqlite, tables: connections, query_history, settings
 │   │       └── terminal.service.ts         # powershell/bash spawn + Docker exec streams
 │   ├── preload/
-│   │   ├── index.ts                        # electronAPI with 4 namespaces, 31 methods
+│   │   ├── index.ts                        # electronAPI with 5 namespaces, 38 methods
 │   │   └── index.d.ts                      # Window.electronAPI type augmentation
 │   └── renderer/
 │       ├── index.html                      # CSP, Google Fonts (Inter, JetBrains Mono, Material Symbols)
@@ -90,7 +92,7 @@ open-db/
 │               │   ├── MainLayout.tsx      # Root: ActivityBar + Sidebar + Editor + BottomPanel + StatusBar
 │               │   ├── ActivityBar.tsx      # Left 48px rail: 5 nav + terminal dropdown + 3 bottom icons
 │               │   ├── Sidebar.tsx          # 240px panel: FileExplorer + OpenEditors + DatabaseExplorer + DockerContainers + Connections
-│               │   └── StatusBar.tsx        # Fixed bottom bar: docker/db status, branch, errors
+│               │   └── StatusBar.tsx        # Fixed bottom bar: docker/db status + zoom controls
 │               ├── editor/
 │               │   ├── EditorArea.tsx       # Tabs + Toolbar + SqlEditor + ResultsPanel
 │               │   ├── EditorTabs.tsx       # Horizontal tab strip (VS Code-style)
@@ -185,7 +187,7 @@ open-db/
 
 ---
 
-## IPC Channels (32 total: 30 invoke + 2 send)
+## IPC Channels (38 total: 36 invoke + 2 send)
 
 ### Database (13 invoke)
 `db:connect`, `db:disconnect`, `db:execute-query`, `db:test-connection`, `db:get-connections`, `db:save-connection`, `db:delete-connection`, `db:get-query-history`, `db:get-databases`, `db:switch-database`, `db:get-schemas`, `db:get-tables`, `db:get-columns`
@@ -197,8 +199,11 @@ open-db/
 `terminal:create`, `terminal:write`, `terminal:resize`, `terminal:close`
 `terminal:data` (main→renderer), `terminal:exit` (main→renderer)
 
-### Filesystem (6 invoke)
-`fs:open-folder`, `fs:read-dir`, `fs:read-file`, `fs:save-file`, `fs:open-file`, `fs:create-folder`
+### Filesystem (8 invoke)
+`fs:open-folder`, `fs:read-dir`, `fs:read-file`, `fs:save-file`, `fs:open-file`, `fs:create-folder`, `fs:create-file`, `fs:delete`
+
+### Window (4 invoke)
+`window:toggle-maximize`, `window:is-maximized`, `window:get-zoom`, `window:set-zoom`
 
 ---
 
@@ -353,4 +358,4 @@ npm run dev
 
 ---
 
-*Last updated: Jun 2025 — Islands Dark glass theme applied across all components, glass utility classes, IBM Plex Mono + Fira Code fonts, directional light borders, pill-shaped ActivityBar, context menus with glass-widget*
+*Last updated: Mar 2026 — Added status bar zoom controls (`-`, slider, `+`, `%`) for inner UI scaling via new `window:get-zoom` / `window:set-zoom` IPC channels*
