@@ -297,6 +297,7 @@ App → MainLayout
 - File Explorer: open folder dialog, recursive tree view, click-to-open files in editor, create new folder
 - Editor: SQL syntax highlighting, tab management, Ctrl+Enter execute, line numbers, Ctrl+S save
 - Results: table with type icons, minimize/maximize, error display, Ctrl+F search/filter, resizable columns (drag col-resize)
+- Database Explorer context menu: `View Data` now opens the table query tab and auto-executes the SELECT to populate results immediately
 - Persistence: connections + query history saved to SQLite, auto-reconnect
 - Bottom panel: drag-to-resize (150-600px), terminal sessions
 - Save button: Ctrl+S saves file to disk via `fs:save-file` IPC, marks tab as unmodified
@@ -358,4 +359,4 @@ npm run dev
 
 ---
 
-*Last updated: Mar 2026 — Added status bar zoom controls (`-`, slider, `+`, `%`) for inner UI scaling via new `window:get-zoom` / `window:set-zoom` IPC channels*
+*Last updated: Mar 2026 — `View Data` in Database Explorer now auto-runs the table query and glass widgets now use an explicit dark background for reliable text contrast*
