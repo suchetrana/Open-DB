@@ -49,6 +49,7 @@ function TableItem({ connId, table }: { connId: string; table: TableNode }) {
   const openStructureTab = useAppStore((s) => s.openStructureTab);
   const addNewFileTab = useAppStore((s) => s.addNewFileTab);
   const executeQuery = useAppStore((s) => s.executeQuery);
+  const setResultsPanelMode = useAppStore((s) => s.setResultsPanelMode);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const toggle = useCallback(async () => {
@@ -78,7 +79,13 @@ function TableItem({ connId, table }: { connId: string; table: TableNode }) {
       label: "View Data",
       icon: "table_rows",
       iconColor: "text-syntax-function",
-      action: () => addTab(table.schema, table.name),
+      action: () => {
+        addTab(table.schema, table.name);
+        setResultsPanelMode('normal');
+        window.setTimeout(() => {
+          void executeQuery();
+        }, 0);
+      },
     },
     {
       label: "View Structure",
