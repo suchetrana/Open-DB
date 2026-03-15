@@ -24,18 +24,24 @@ const DB_DEFAULT_DBS: Record<string, string> = {
 
 function StatusDot({ status }: { status: ContainerStatus }) {
   if (status === "running") {
-    return <div className="w-2 h-2 rounded-full bg-status-green pulse-dot" />;
+    return <div className="w-2.5 h-2.5 rounded-full bg-status-green pulse-dot" />;
   }
   if (status === "starting") {
-    return <div className="w-2 h-2 rounded-full bg-status-amber animate-pulse" />;
+    return <div className="w-2.5 h-2.5 rounded-full bg-status-amber animate-pulse" />;
   }
-  return <div className="w-2 h-2 rounded-full border border-text-secondary" />;
+  return <div className="w-2.5 h-2.5 rounded-full border border-text-secondary" />;
 }
 
 function statusTextColor(status: ContainerStatus): string {
   if (status === "running") return "text-status-green";
   if (status === "starting") return "text-status-amber";
   return "text-text-secondary";
+}
+
+function statusLabel(status: ContainerStatus): string {
+  if (status === "running") return "Running";
+  if (status === "starting") return "Starting";
+  return "Stopped";
 }
 
 const DB_TYPES: { label: string; value: DatabaseType }[] = [
@@ -192,10 +198,10 @@ export function DockerContainers() {
       <summary className="glass-row mx-1 cursor-pointer select-none text-text-primary focus:outline-none" style={{ width: 'calc(100% - 8px)' }}>
         <Icon
           name="chevron_right"
-          size={16}
+          size={17}
           className="transition-transform group-open:rotate-90 text-text-primary"
         />
-        <span className="text-[11px] font-bold uppercase ml-0.5 tracking-[0.5px]">
+        <span className="text-[12px] font-bold uppercase ml-0.5 tracking-[0.5px]">
           Docker Containers
         </span>
         {dockerAvailable && (
@@ -229,20 +235,24 @@ export function DockerContainers() {
 
       {showCreate && dockerAvailable && <CreateContainerForm onClose={() => setShowCreate(false)} />}
 
+      <div className="px-3 pt-1 pb-0.5 text-[11px] text-text-muted">
+        Manage local database containers quickly.
+      </div>
+
       <div className="flex flex-col text-[13px] pb-2 font-mono">
         {!dockerAvailable && (
-          <div className="text-text-muted text-[11px] py-2 pl-6 space-y-2">
+          <div className="text-text-muted text-[12px] py-2 pl-6 space-y-2">
             <div className="flex items-center gap-1.5">
-              <Icon name="warning" size={12} className="text-status-amber" />
+              <Icon name="warning" size={13} className="text-status-amber" />
               Docker not available
             </div>
-            <div className="text-[10px] text-text-secondary pl-3.5">
+            <div className="text-[11px] text-text-secondary pl-3.5">
               Start Docker Desktop to manage containers.
             </div>
             <button
               onClick={handleRefreshDocker}
               disabled={refreshing}
-              className="ml-3.5 flex items-center gap-1 text-[10px] text-accent-blue hover:text-text-bright disabled:opacity-50"
+              className="ml-3.5 flex items-center gap-1 text-[11px] text-accent-blue hover:text-text-bright disabled:opacity-50"
             >
               <Icon name="refresh" size={12} className={refreshing ? 'animate-spin' : ''} />
               {refreshing ? 'Checking…' : 'Retry connection'}
@@ -250,52 +260,84 @@ export function DockerContainers() {
           </div>
         )}
         {dockerAvailable && containers.length === 0 && !showCreate && (
-          <div className="text-text-muted text-[11px] py-2 pl-6">
+          <div className="text-text-muted text-[12px] py-2 pl-6">
             No containers. Click + to create one.
           </div>
         )}
+        <div className="flex flex-col gap-2 px-1 pt-1">
         {containers.map((c) => (
           <div
             key={c.id}
-            className="glass-row mx-1 gap-2 px-4 py-[3px] text-text-primary cursor-pointer group/item"
+            className="glass-row mx-1 px-3 py-2.5 text-text-primary cursor-pointer group/item border border-border-subtle bg-bg-surface shadow-glass"
             style={{ width: 'calc(100% - 8px)' }}
           >
-            <StatusDot status={c.status} />
-            <span
-              className={clsx(
-                "truncate text-xs flex-1",
-                statusTextColor(c.status),
-                c.status === "stopped" && "line-through decoration-[#555]"
+            <div className="flex items-center gap-2">
+              <StatusDot status={c.status} />
+              <span className={clsx("text-[11px] font-semibold uppercase tracking-wide", statusTextColor(c.status))}>
+                {statusLabel(c.status)}
+              </span>
+              <span className="rounded-item border border-border-subtle px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-text-secondary">
+                {c.type}
+              </span>
+              <span className="ml-auto flex items-center gap-1.5">
+                {c.status === "stopped" && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); startContainer(c.id); }}
+                    title="Run container"
+                    className="flex items-center gap-1 rounded-input border border-border-default bg-bg-surface-hover px-2 py-1 text-[11px] font-medium text-text-primary hover:text-status-green transition-colors duration-200"
+                  >
+                    <Icon name="play_arrow" size={14} />
+                    Run
+                  </button>
+                )}
+                {c.status === "running" && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleConnectToContainer(c); }}
+                    title="Connect to database"
+                    className="flex items-center gap-1 rounded-input border border-border-default bg-bg-surface-hover px-2 py-1 text-[11px] font-medium text-text-primary hover:text-status-green transition-colors duration-200"
+                  >
+                    <Icon name="database" size={13} />
+                    Connect
+                  </button>
+                )}
+              </span>
+            </div>
+
+            <div className="mt-2 flex items-center gap-2 text-[13px]">
+              <span
+                className={clsx(
+                  "truncate font-semibold",
+                  c.status === "stopped" && "line-through decoration-[#555] text-text-secondary"
+                )}
+              >
+                {c.name}
+              </span>
+              {c.port > 0 && (
+                <span className="rounded-item border border-border-subtle px-1.5 py-0.5 text-[11px] text-text-muted font-mono">:{c.port}</span>
               )}
-            >
-              {c.name}
-            </span>
-            {c.port > 0 && (
-              <span className="text-[9px] text-text-muted font-mono">:{c.port}</span>
-            )}
-            <span className="ml-auto opacity-0 group-hover/item:opacity-100 flex gap-1">
-              {c.status === "stopped" ? (
-                <>
-                  <button onClick={(e) => { e.stopPropagation(); startContainer(c.id); }} title="Start">
-                    <Icon name="play_arrow" size={14} className="text-text-secondary hover:text-status-green" />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); removeContainer(c.id); }} title="Remove">
-                    <Icon name="delete" size={14} className="text-text-secondary hover:text-status-red" />
-                  </button>
-                </>
-              ) : c.status === "running" ? (
-                <>
-                  <button onClick={(e) => { e.stopPropagation(); handleConnectToContainer(c); }} title="Connect to database">
-                    <Icon name="database" size={14} className="text-text-secondary hover:text-status-green" />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); stopContainer(c.id); }} title="Stop">
+
+              <span className="ml-auto flex items-center gap-1 opacity-80 group-hover/item:opacity-100 transition-opacity duration-200">
+                {c.status === "running" && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); stopContainer(c.id); }}
+                    title="Stop container"
+                    className="rounded-item p-1 hover:bg-bg-surface-hover"
+                  >
                     <Icon name="stop" size={14} className="text-text-secondary hover:text-status-red" />
                   </button>
-                </>
-              ) : null}
-            </span>
+                )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); removeContainer(c.id); }}
+                  title="Remove container"
+                  className="rounded-item p-1 hover:bg-bg-surface-hover"
+                >
+                  <Icon name="delete" size={14} className="text-text-secondary hover:text-status-red" />
+                </button>
+              </span>
+            </div>
           </div>
         ))}
+        </div>
       </div>
     </details>
   );
