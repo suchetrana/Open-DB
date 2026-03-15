@@ -8,8 +8,8 @@ import { storageService } from '../services/storage.service'
 export function registerDatabaseHandlers(): void {
   ipcMain.handle(
     'db:connect',
-    async (_e, connectionId: string, host: string, port: number, user: string, password: string, database: string) => {
-      await databaseService.connect(connectionId, host, port, user, password, database)
+    async (_e, connectionId: string, type: 'postgres' | 'mysql', host: string, port: number, user: string, password: string, database: string) => {
+      await databaseService.connect(connectionId, type, host, port, user, password, database)
       return { ok: true }
     }
   )
@@ -28,8 +28,8 @@ export function registerDatabaseHandlers(): void {
 
   ipcMain.handle(
     'db:test-connection',
-    async (_e, host: string, port: number, user: string, password: string, database: string) => {
-      return databaseService.testConnection(host, port, user, password, database)
+    async (_e, type: 'postgres' | 'mysql', host: string, port: number, user: string, password: string, database: string) => {
+      return databaseService.testConnection(type, host, port, user, password, database)
     }
   )
 
@@ -42,7 +42,7 @@ export function registerDatabaseHandlers(): void {
       name: c.name,
       type: c.type,
       host: c.host,
-      port: c.port,
+      port: Number(c.port),
       username: c.username,
       password: c.password,
       database: c.database_name,

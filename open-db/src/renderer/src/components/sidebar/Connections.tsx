@@ -42,6 +42,7 @@ function AddConnectionForm({ onClose }: { onClose: () => void }) {
     try {
       // Test connection first
       const ok = await window.electronAPI.database.testConnection(
+        dbType,
         host,
         parseInt(port, 10),
         user,
@@ -104,33 +105,65 @@ function AddConnectionForm({ onClose }: { onClose: () => void }) {
 
 export function Connections() {
   const connections = useAppStore((s) => s.connections);
+  const tabs = useAppStore((s) => s.tabs);
   const activeConnectionId = useAppStore((s) => s.activeConnectionId);
   const disconnectDatabase = useAppStore((s) => s.disconnectDatabase);
   const deleteConnection = useAppStore((s) => s.deleteConnection);
   const loadConnections = useAppStore((s) => s.loadConnections);
   const connectToDatabase = useAppStore((s) => s.connectToDatabase);
+  const addNewFileTab = useAppStore((s) => s.addNewFileTab);
   const [showForm, setShowForm] = useState(false);
+  const [reconnectingId, setReconnectingId] = useState<string | null>(null);
+  const [passwordEntryId, setPasswordEntryId] = useState<string | null>(null);
+  const [passwordDraft, setPasswordDraft] = useState("");
+  const [reconnectError, setReconnectError] = useState<string>("");
 
   // Load saved connections from storage on mount
   useEffect(() => {
     loadConnections();
   }, [loadConnections]);
 
-  const handleReconnect = async (conn: Connection) => {
-    if (conn.isConnected) return;
-    // Try saved password first, otherwise prompt
-    let pw = conn.password ?? null;
-    if (!pw) {
-      pw = prompt(`Enter password for ${conn.name}:`);
-      if (pw === null) return;
+  const ensureQueryTabReady = () => {
+    if (tabs.length === 0) {
+      addNewFileTab("query.sql", "SELECT NOW() AS connected_at;");
     }
+  };
+
+  const connectWithPassword = async (conn: Connection, password: string) => {
+    setReconnectError("");
+    setReconnectingId(conn.id);
+
     try {
-      await connectToDatabase(conn, pw);
-      // Save password for future auto-reconnect
-      await window.electronAPI.database.saveConnection({ ...conn, password: pw });
-    } catch {
-      alert(`Failed to connect to ${conn.name}`);
+      await connectToDatabase(conn, password);
+      await window.electronAPI.database.saveConnection({ ...conn, password });
+      setPasswordEntryId(null);
+      setPasswordDraft("");
+      ensureQueryTabReady();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Connection failed. Check password and connection details.";
+      setReconnectError(msg);
+      setPasswordEntryId(conn.id);
+      setPasswordDraft(password);
+    } finally {
+      setReconnectingId(null);
     }
+  };
+
+  const handleReconnect = async (conn: Connection) => {
+    if (conn.isConnected || reconnectingId === conn.id) return;
+
+    if (conn.password) {
+      await connectWithPassword(conn, conn.password);
+      return;
+    }
+
+    setReconnectError("");
+    setPasswordEntryId(conn.id);
+    setPasswordDraft("");
+  };
+
+  const handleInlineConnect = async (conn: Connection) => {
+    await connectWithPassword(conn, passwordDraft);
   };
 
   return (
@@ -165,38 +198,86 @@ export function Connections() {
           </div>
         )}
         {connections.map((conn) => (
-          <div
-            key={conn.id}
-            onClick={() => handleReconnect(conn)}
-            className={clsx(
-              "flex items-center gap-2 py-[3px] text-text-primary cursor-pointer text-left pr-2 group/conn glass-row rounded-item mx-1",
-              activeConnectionId === conn.id && "selected"
-            )}
-          >
-            <Icon
-              name={conn.isConnected ? "database" : "cloud_off"}
-              size={14}
-              className={conn.isConnected ? "text-status-green" : "text-text-muted"}
-            />
-            <span className="text-xs truncate flex-1">{conn.name}</span>
-            <span className="flex gap-1 opacity-0 group-hover/conn:opacity-100">
-              {conn.isConnected && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); disconnectDatabase(conn.id); }}
-                  className="text-text-secondary hover:text-status-amber"
-                  title="Disconnect"
-                >
-                  <Icon name="link_off" size={12} />
-                </button>
+          <div key={conn.id} className="mx-1">
+            <div
+              onClick={() => handleReconnect(conn)}
+              className={clsx(
+                "flex items-center gap-2 py-[3px] text-text-primary cursor-pointer text-left pr-2 group/conn glass-row rounded-item",
+                activeConnectionId === conn.id && "selected"
               )}
-              <button
-                onClick={(e) => { e.stopPropagation(); deleteConnection(conn.id); }}
-                className="text-text-secondary hover:text-status-red"
-                title="Delete connection"
-              >
-                <Icon name="delete" size={12} />
-              </button>
-            </span>
+            >
+              <Icon
+                name={conn.isConnected ? "database" : "cloud_off"}
+                size={14}
+                className={conn.isConnected ? "text-status-green" : "text-text-muted"}
+              />
+              <span className="text-xs truncate flex-1">{conn.name}</span>
+              <span className="flex gap-1 opacity-0 group-hover/conn:opacity-100">
+                {!conn.isConnected && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleReconnect(conn); }}
+                    className="text-text-secondary hover:text-status-green"
+                    title="Connect"
+                  >
+                    <Icon name={reconnectingId === conn.id ? "hourglass_empty" : "play_arrow"} size={12} />
+                  </button>
+                )}
+                {conn.isConnected && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); disconnectDatabase(conn.id); }}
+                    className="text-text-secondary hover:text-status-amber"
+                    title="Disconnect"
+                  >
+                    <Icon name="link_off" size={12} />
+                  </button>
+                )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); deleteConnection(conn.id); }}
+                  className="text-text-secondary hover:text-status-red"
+                  title="Delete connection"
+                >
+                  <Icon name="delete" size={12} />
+                </button>
+              </span>
+            </div>
+
+            {passwordEntryId === conn.id && !conn.isConnected && (
+              <div className="mt-1 mb-2 rounded-item border border-border-subtle bg-bg-input px-2 py-2 text-[11px] space-y-1.5">
+                <div className="text-text-secondary">
+                  Connect to <span className="text-text-primary">{conn.host}:{conn.port}/{conn.database ?? "postgres"}</span> as <span className="text-text-primary">{conn.username ?? "postgres"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="password"
+                    value={passwordDraft}
+                    onChange={(e) => setPasswordDraft(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    placeholder="Enter database password"
+                    className="flex-1 bg-bg-surface border border-border-default rounded-item px-2 py-1 text-[11px] text-text-primary outline-none focus:border-accent-blue"
+                  />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); void handleInlineConnect(conn); }}
+                    disabled={reconnectingId === conn.id}
+                    className="rounded-item border border-border-default bg-bg-surface-hover px-2 py-1 text-[11px] text-text-primary hover:text-status-green disabled:opacity-60"
+                  >
+                    {reconnectingId === conn.id ? "Connecting…" : "Connect"}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPasswordEntryId(null);
+                      setReconnectError("");
+                      setPasswordDraft("");
+                    }}
+                    className="rounded-item border border-border-default bg-bg-surface px-2 py-1 text-[11px] text-text-secondary hover:text-text-primary"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {reconnectError && <div className="text-status-red text-[10px] break-words">{reconnectError}</div>}
+                <div className="text-[10px] text-text-muted">Tip: common Docker defaults are postgres, localdev, or root.</div>
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -22,6 +22,13 @@ const DB_DEFAULT_DBS: Record<string, string> = {
   redis: "",
 };
 
+const DB_PASSWORD_CANDIDATES: Record<string, string[]> = {
+  postgres: ["postgres", "localdev", "root"],
+  mysql: ["root", "localdev", "mysql"],
+  mongodb: ["admin", "localdev", "mongodb"],
+  redis: [""],
+};
+
 function StatusDot({ status }: { status: ContainerStatus }) {
   if (status === "running") {
     return <div className="w-2.5 h-2.5 rounded-full bg-status-green pulse-dot" />;
@@ -130,6 +137,7 @@ function CreateContainerForm({ onClose }: { onClose: () => void }) {
 
 export function DockerContainers() {
   const containers = useAppStore((s) => s.containers);
+  const connections = useAppStore((s) => s.connections);
   const dockerAvailable = useAppStore((s) => s.dockerAvailable);
   const fetchContainers = useAppStore((s) => s.fetchContainers);
   const fetchDockerStatus = useAppStore((s) => s.fetchDockerStatus);
@@ -138,8 +146,10 @@ export function DockerContainers() {
   const removeContainer = useAppStore((s) => s.removeContainer);
   const addConnection = useAppStore((s) => s.addConnection);
   const connectToDatabase = useAppStore((s) => s.connectToDatabase);
+  const setSidebarView = useAppStore((s) => s.setSidebarView);
   const [showCreate, setShowCreate] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [connectingContainerId, setConnectingContainerId] = useState<string | null>(null);
 
   // Fetch real containers on mount
   React.useEffect(() => {
@@ -163,15 +173,23 @@ export function DockerContainers() {
     }
   };
 
+  const findConnectionForContainer = (c: { id: string; port: number; type: string }): Connection | undefined => {
+    return connections.find((conn) =>
+      conn.dockerContainerId === c.id
+      || (conn.type === c.type && conn.host === "localhost" && conn.port === c.port)
+    );
+  };
+
   const handleConnectToContainer = async (c: { id: string; name: string; port: number; type: string }) => {
     const dbType = c.type as DatabaseType;
     const user = DB_DEFAULT_USERS[dbType] ?? "postgres";
     const db = DB_DEFAULT_DBS[dbType] ?? "postgres";
 
-    const pw = prompt(`Enter password for ${c.name} (${dbType}):\n\nDefault for Docker: postgres, localdev, or root`, "postgres");
-    if (pw === null) return;
+    if (connectingContainerId) return;
+    setConnectingContainerId(c.id);
 
-    const conn: Connection = {
+    const existingConn = findConnectionForContainer(c);
+    const conn: Connection = existingConn ?? {
       id: genId(),
       name: c.name,
       type: dbType,
@@ -183,13 +201,39 @@ export function DockerContainers() {
       dockerContainerId: c.id,
     };
 
-    try {
+    if (!existingConn) {
       addConnection(conn);
-      await connectToDatabase(conn, pw);
-      // Save with password for auto-reconnect
-      await window.electronAPI.database.saveConnection({ ...conn, password: pw });
-    } catch {
-      alert(`Failed to connect to ${c.name}. Check password and that the container is ready.`);
+      await window.electronAPI.database.saveConnection(conn).catch(() => {});
+    }
+
+    try {
+      if (conn.password) {
+        try {
+          await connectToDatabase(conn, conn.password);
+          await window.electronAPI.database.saveConnection({ ...conn, password: conn.password });
+          setSidebarView("schema");
+          return;
+        } catch {
+          // try defaults below
+        }
+      }
+
+      const attempts = DB_PASSWORD_CANDIDATES[dbType] ?? ["postgres", "localdev", "root"];
+      for (const candidate of attempts) {
+        try {
+          await connectToDatabase(conn, candidate);
+          await window.electronAPI.database.saveConnection({ ...conn, password: candidate });
+          setSidebarView("schema");
+          return;
+        } catch {
+          // keep trying candidates
+        }
+      }
+
+      // Redirect user to Connections panel to enter password via GUI inline form
+      setSidebarView("schema");
+    } finally {
+      setConnectingContainerId(null);
     }
   };
 
@@ -297,7 +341,7 @@ export function DockerContainers() {
                     className="flex items-center gap-1 rounded-input border border-border-default bg-bg-surface-hover px-2 py-1 text-[11px] font-medium text-text-primary hover:text-status-green transition-colors duration-200"
                   >
                     <Icon name="database" size={13} />
-                    Connect
+                    {connectingContainerId === c.id ? "Connecting…" : "Connect"}
                   </button>
                 )}
               </span>

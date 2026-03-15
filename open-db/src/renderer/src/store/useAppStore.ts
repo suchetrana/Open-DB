@@ -573,12 +573,17 @@ export const useAppStore = create<AppState>()(
               const existing = state.connections.find((c: Connection) => c.id === conn.id)
               if (existing?.isConnected) continue
 
-              const dbName = conn.database ?? 'postgres'
+              const dbName = conn.database ?? (conn.type === 'mysql' ? 'mysql' : 'postgres')
+              const driver = conn.type === 'mysql' ? 'mysql' : conn.type === 'postgres' ? 'postgres' : null
+              if (!driver) continue
+              const normalizedPort = Number(conn.port)
+              if (!Number.isFinite(normalizedPort) || normalizedPort <= 0 || normalizedPort > 65535) continue
               await window.electronAPI.database.connect(
                 conn.id,
+                driver,
                 conn.host,
-                conn.port,
-                conn.username ?? 'postgres',
+                normalizedPort,
+                conn.username ?? (driver === 'mysql' ? 'root' : 'postgres'),
                 conn.password,
                 dbName
               )
@@ -617,12 +622,23 @@ export const useAppStore = create<AppState>()(
 
     connectToDatabase: async (conn: Connection, password: string) => {
       try {
-        const dbName = conn.database ?? 'postgres'
+        const driver = conn.type === 'mysql' ? 'mysql' : conn.type === 'postgres' ? 'postgres' : null
+        if (!driver) {
+          throw new Error(`GUI query mode currently supports PostgreSQL and MySQL. Received: ${conn.type}`)
+        }
+
+        const normalizedPort = Number(conn.port)
+        if (!Number.isFinite(normalizedPort) || normalizedPort <= 0 || normalizedPort > 65535) {
+          throw new Error(`Invalid port for ${conn.name}. Please set a valid port between 1 and 65535.`)
+        }
+
+        const dbName = conn.database ?? (driver === 'mysql' ? 'mysql' : 'postgres')
         await window.electronAPI.database.connect(
           conn.id,
+          driver,
           conn.host,
-          conn.port,
-          conn.username ?? 'postgres',
+          normalizedPort,
+          conn.username ?? (driver === 'mysql' ? 'root' : 'postgres'),
           password,
           dbName
         )
