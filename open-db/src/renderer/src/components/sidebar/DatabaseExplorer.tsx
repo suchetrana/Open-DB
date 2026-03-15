@@ -29,7 +29,7 @@ function ColumnItem({ col }: { col: ColumnNode }) {
     : dataTypeIcon(col.dataType);
 
   return (
-    <div className="flex items-center gap-1.5 pl-14 pr-2 py-[2px] text-[11px] text-text-secondary glass-row mx-1 cursor-default select-none" style={{ width: 'calc(100% - 8px)', paddingLeft: '3.5rem' }}>
+    <div className="flex items-center gap-1.5 pl-14 pr-2 py-1 text-[11px] text-text-secondary glass-row mx-1 cursor-default select-none" style={{ width: 'calc(100% - 8px)', paddingLeft: '3.5rem' }}>
       <Icon name={icon} size={12} className={color} />
       <span className="truncate">{col.name}</span>
       <span className="ml-auto text-[10px] text-text-muted truncate max-w-[80px]">
@@ -49,6 +49,7 @@ function TableItem({ connId, table }: { connId: string; table: TableNode }) {
   const openStructureTab = useAppStore((s) => s.openStructureTab);
   const addNewFileTab = useAppStore((s) => s.addNewFileTab);
   const executeQuery = useAppStore((s) => s.executeQuery);
+  const setResultsPanelMode = useAppStore((s) => s.setResultsPanelMode);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const toggle = useCallback(async () => {
@@ -78,7 +79,13 @@ function TableItem({ connId, table }: { connId: string; table: TableNode }) {
       label: "View Data",
       icon: "table_rows",
       iconColor: "text-syntax-function",
-      action: () => addTab(table.schema, table.name),
+      action: () => {
+        addTab(table.schema, table.name);
+        setResultsPanelMode('normal');
+        window.setTimeout(() => {
+          void executeQuery();
+        }, 0);
+      },
     },
     {
       label: "View Structure",
@@ -175,7 +182,7 @@ function TableItem({ connId, table }: { connId: string; table: TableNode }) {
   return (
     <div>
       <div
-        className="glass-row mx-1 gap-1.5 pl-10 pr-2 py-[2px] cursor-pointer select-none group/tbl transition-colors"
+        className="glass-row mx-1 flex items-center gap-1.5 pl-10 pr-2 py-1 cursor-pointer select-none group/tbl transition-colors hover:bg-[#27272a]/60"
         style={{ width: 'calc(100% - 8px)' }}
         onClick={toggle}
         onContextMenu={handleContextMenu}
@@ -190,7 +197,7 @@ function TableItem({ connId, table }: { connId: string; table: TableNode }) {
           size={13}
           className={isView ? "text-syntax-keyword" : "text-syntax-decorator"}
         />
-        <span className="text-[11px] text-text-primary truncate flex-1">{table.name}</span>
+        <span className="text-[12px] text-text-primary truncate flex-1">{table.name}</span>
         {table.rowEstimate > 0 && (
           <span className="text-[10px] text-text-muted">
             ~{table.rowEstimate >= 1000 ? `${(table.rowEstimate / 1000).toFixed(1)}k` : table.rowEstimate}
@@ -271,7 +278,7 @@ function SchemaItem({ connId, schema, dbName }: { connId: string; schema: string
   return (
     <div>
       <div
-        className="glass-row mx-1 gap-1.5 pl-6 pr-2 py-[2px] cursor-pointer select-none"
+        className="glass-row mx-1 flex items-center gap-1.5 pl-6 pr-2 py-1 cursor-pointer select-none hover:bg-[#27272a]/55"
         style={{ width: 'calc(100% - 8px)' }}
         onClick={toggle}
       >
@@ -281,7 +288,7 @@ function SchemaItem({ connId, schema, dbName }: { connId: string; schema: string
           className={clsx("transition-transform text-text-muted", open && "rotate-90")}
         />
         <Icon name="schema" size={13} className="text-syntax-string" />
-        <span className="text-[11px] text-text-primary">{schema}</span>
+        <span className="text-[11px] text-text-primary tracking-[0.01em]">{schema}</span>
         <span className="text-[10px] text-text-muted ml-1">
           ({tables.length > 0 ? tables.length : "…"})
         </span>
@@ -374,10 +381,10 @@ function DatabaseItem({
     <div>
       <div
         className={clsx(
-          "glass-row mx-1 gap-1.5 pl-4 pr-2 py-[2px] cursor-pointer select-none group/db",
+          "glass-row mx-1 flex items-center gap-1.5 pl-4 pr-2 py-1.5 cursor-pointer select-none group/db border border-transparent",
           isSelected
-            ? ""
-            : "opacity-75 hover:opacity-100"
+            ? "bg-[#1e293b]/80 border-[#334155] shadow-[inset_0_0_0_1px_rgba(96,165,250,0.12)]"
+            : "opacity-80 hover:opacity-100 hover:bg-[#27272a]/65"
         )}
         style={{ width: 'calc(100% - 8px)' }}
         onClick={handleClick}
@@ -397,14 +404,16 @@ function DatabaseItem({
         />
         <span
           className={clsx(
-            "text-[11px] truncate flex-1",
+            "text-[13px] truncate flex-1",
             isSelected ? "text-text-primary font-semibold" : "text-text-secondary"
           )}
         >
           {dbName}
         </span>
         {isSelected && (
-          <span className="text-[9px] text-accent-blue font-bold uppercase">Active</span>
+          <span className="ml-2 inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.06em] text-accent-blue bg-accent-blue/15 border border-accent-blue/30">
+            Active
+          </span>
         )}
         {!isSelected && (
           <button
@@ -412,7 +421,7 @@ function DatabaseItem({
               e.stopPropagation();
               onSwitch(dbName);
             }}
-            className="opacity-0 group-hover/db:opacity-100 text-[10px] text-text-secondary hover:text-accent-blue"
+            className="opacity-0 group-hover/db:opacity-100 text-[10px] uppercase tracking-[0.04em] text-text-secondary hover:text-accent-blue"
             title={`Switch to ${dbName}`}
           >
             connect
@@ -472,20 +481,20 @@ export function DatabaseExplorer() {
 
   return (
     <details className="group mt-0.5" open>
-      <summary className="glass-row mx-1 cursor-pointer select-none text-text-primary focus:outline-none" style={{ width: 'calc(100% - 8px)' }}>
+      <summary className="glass-row mx-1 flex items-center cursor-pointer select-none text-text-primary focus:outline-none py-1" style={{ width: 'calc(100% - 8px)' }}>
         <Icon
           name="chevron_right"
-          size={16}
+          size={14}
           className="transition-transform group-open:rotate-90 text-text-primary"
         />
-        <span className="text-[11px] font-bold uppercase ml-0.5 tracking-[0.5px]">Databases</span>
+        <span className="text-[11px] font-bold uppercase ml-0.5 tracking-[0.08em] text-text-secondary">Databases</span>
         {activeConn && (
           <button
             onClick={(e) => {
               e.preventDefault();
               fetchDatabases();
             }}
-            className="ml-auto mr-2 text-text-secondary hover:text-text-primary"
+            className="ml-auto mr-2 text-text-muted hover:text-text-primary rounded-item p-0.5 hover:bg-[#27272a]/60"
             title="Refresh databases"
           >
             <Icon name="refresh" size={14} />
