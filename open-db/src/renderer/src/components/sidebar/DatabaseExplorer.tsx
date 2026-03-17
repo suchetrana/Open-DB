@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Icon, ContextMenu } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
+import { RedisDatabaseBrowser } from "./RedisDatabaseBrowser";
 import { clsx } from "clsx";
 import type { TableNode, ColumnNode, ContextMenuItem, IndexNode } from "@/types";
 
@@ -606,11 +607,18 @@ export function DatabaseExplorer() {
           </div>
         )}
 
-        {switching && (
+        {activeConn?.isConnected && activeConn.type === 'redis' && activeConn.dockerContainerId && (
+          <RedisDatabaseBrowser
+            containerId={activeConn.dockerContainerId}
+            db={Number(selectedDatabase ?? '0')}
+          />
+        )}
+
+        {activeConn?.type !== 'redis' && switching && (
           <div className="text-text-muted text-[10px] py-1 pl-6">Switching database…</div>
         )}
 
-        {activeConn?.isConnected && availableDatabases.length > 0 && (
+        {activeConn?.isConnected && activeConn.type !== 'redis' && availableDatabases.length > 0 && (
           <>
             {availableDatabases.map((db) => (
               <DatabaseItem
@@ -624,7 +632,7 @@ export function DatabaseExplorer() {
           </>
         )}
 
-        {activeConn?.isConnected && availableDatabases.length === 0 && !switching && (
+        {activeConn?.isConnected && activeConn.type !== 'redis' && availableDatabases.length === 0 && !switching && (
           <div className="text-text-muted text-[10px] py-1 pl-6">
             No databases found.{" "}
             <button

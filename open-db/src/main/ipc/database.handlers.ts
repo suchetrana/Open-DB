@@ -3,6 +3,7 @@
  */
 import { ipcMain } from 'electron'
 import { databaseService } from '../services/database.service'
+import { mongoService } from '../services/mongo.service'
 import { storageService } from '../services/storage.service'
 
 export function registerDatabaseHandlers(): void {
@@ -110,5 +111,23 @@ export function registerDatabaseHandlers(): void {
 
   ipcMain.handle('db:get-triggers', async (_e, connectionId: string, schema: string, table: string) => {
     return databaseService.getTriggers(connectionId, schema, table)
+  })
+
+  // ── Mongo via Docker exec ──
+
+  ipcMain.handle('mongo:execute', async (_e, containerId: string, query: string) => {
+    return mongoService.execute(containerId, query)
+  })
+
+  ipcMain.handle('mongo:get-databases', async (_e, containerId: string) => {
+    return mongoService.getDatabases(containerId)
+  })
+
+  ipcMain.handle('mongo:get-collections', async (_e, containerId: string, database?: string) => {
+    return mongoService.getCollections(containerId, database)
+  })
+
+  ipcMain.handle('mongo:get-fields', async (_e, containerId: string, collection: string, database?: string) => {
+    return mongoService.getFields(containerId, collection, database)
   })
 }

@@ -54,7 +54,7 @@ export interface ColumnNode {
 export interface EditorTab {
   id: string;
   title: string;
-  type: "sql" | "config" | "table" | "structure";
+  type: "sql" | "config" | "table" | "structure" | "redis-browser" | "redis-key" | "redis-cli";
   icon: string;
   iconColor: string;
   isActive: boolean;
@@ -64,6 +64,10 @@ export interface EditorTab {
   _schema?: string;
   _tableName?: string;
   _connId?: string;
+  /** For Redis key tabs */
+  _redisKey?: string;
+  _redisDb?: number;
+  _containerId?: string;
 }
 
 // ── Table Structure (Beekeeper-style) ──
@@ -161,3 +165,63 @@ export interface FileTreeNode {
 
 // ── Bottom Panel ──
 export type BottomPanelTab = "problems" | "output" | "terminal" | "debug";
+
+// ── Redis ──
+export interface RedisKeyInfo {
+  key: string;
+  type: string;
+  ttl: number;
+}
+
+export interface RedisDbInfo {
+  index: number;
+  keys: number;
+}
+
+export type RedisValueType = 'string' | 'list' | 'set' | 'hash' | 'zset' | 'none' | 'unknown';
+
+export interface RedisZSetMember {
+  member: string;
+  score: string;
+}
+
+export interface RedisKeyValueResult {
+  type: RedisValueType;
+  value: string | string[] | Record<string, string> | RedisZSetMember[];
+  ttl: number;
+  size: number;
+}
+
+export interface RedisBrowserState {
+  containerId: string;
+  db: number;
+  pattern: string;
+  cursor: string;
+  keys: RedisKeyInfo[];
+  isLoading: boolean;
+  error: string | null;
+}
+
+export interface RedisKeyViewerState {
+  containerId: string;
+  db: number;
+  key: string;
+  type: RedisValueType;
+  value: RedisKeyValueResult['value'];
+  ttl: number;
+  size: number;
+  isLoading: boolean;
+  isSaving: boolean;
+  error: string | null;
+}
+
+// ── MongoDB ──
+export interface MongoCollectionInfo {
+  name: string;
+  count: number;
+}
+
+export interface MongoFieldInfo {
+  name: string;
+  type: string;
+}

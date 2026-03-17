@@ -4,7 +4,8 @@ const MIN_ZOOM = 0.7
 const MAX_ZOOM = 1.6
 
 function clampZoom(factor: number): number {
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, factor))
+  const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, factor))
+  return Math.round(clamped * 10) / 10
 }
 
 function getSenderWindow(sender: Electron.WebContents): BrowserWindow | null {
@@ -32,7 +33,13 @@ export function registerWindowHandlers(): void {
 
   ipcMain.handle('window:get-zoom', (event) => {
     const win = getSenderWindow(event.sender)
-    const zoomFactor = win?.webContents.getZoomFactor() ?? 1
+    const rawZoom = win?.webContents.getZoomFactor() ?? 1
+    const zoomFactor = clampZoom(rawZoom)
+
+    if (win && zoomFactor !== rawZoom) {
+      win.webContents.setZoomFactor(zoomFactor)
+    }
+
     return { zoomFactor }
   })
 

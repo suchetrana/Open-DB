@@ -3,6 +3,8 @@ import { EditorTabs } from "./EditorTabs";
 import { EditorToolbar } from "./EditorToolbar";
 import { SqlEditor } from "./SqlEditor";
 import { TableStructureView } from "./TableStructureView";
+import { RedisKeyViewer } from "./RedisKeyViewer";
+import { RedisDatabaseBrowser } from "@/components/sidebar/RedisDatabaseBrowser";
 import { ResultsPanel } from "@/components/results/ResultsPanel";
 import { Icon, Splitter } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
@@ -67,6 +69,8 @@ export function EditorArea() {
   );
 
   const isStructureTab = activeTab?.type === 'structure';
+  const isRedisKeyTab = activeTab?.type === 'redis-key';
+  const isRedisBrowserTab = activeTab?.type === 'redis-browser';
 
   // Split pane: track editor height ratio as a percentage
   const containerRef = useRef<HTMLDivElement>(null);
@@ -110,6 +114,32 @@ export function EditorArea() {
           connId={(activeTab as any)._connId}
           schema={(activeTab as any)._schema}
           tableName={(activeTab as any)._tableName}
+        />
+      </>
+    );
+  }
+
+  if (isRedisKeyTab && activeTab) {
+    return (
+      <>
+        <EditorTabs />
+        <RedisKeyViewer
+          containerId={(activeTab as any)._containerId}
+          keyName={(activeTab as any)._redisKey}
+          db={(activeTab as any)._redisDb ?? 0}
+        />
+      </>
+    );
+  }
+
+  if (isRedisBrowserTab && activeTab) {
+    return (
+      <>
+        <EditorTabs />
+        <RedisDatabaseBrowser
+          containerId={(activeTab as any)._containerId}
+          db={(activeTab as any)._redisDb ?? 0}
+          embeddedInEditor
         />
       </>
     );

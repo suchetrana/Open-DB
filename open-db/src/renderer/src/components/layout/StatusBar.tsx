@@ -1,9 +1,19 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 
+const MIN_ZOOM = 0.7;
+const MAX_ZOOM = 1.6;
+
+function normalizeZoom(value: number): number {
+  const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+  return Math.round(clamped * 10) / 10;
+}
+
 export function StatusBar() {
   const [zoomFactor, setZoomFactor] = useState(1);
+  const zoomFactorRef = useRef(1);
+  const latestZoomRequestRef = useRef(0);
   const activeConnectionId = useAppStore((s) => s.activeConnectionId);
   const connections = useAppStore((s) => s.connections);
   const selectedDatabase = useAppStore((s) => s.selectedDatabase);
@@ -15,9 +25,16 @@ export function StatusBar() {
   useEffect(() => {
     let mounted = true;
     window.electronAPI.window.getZoom().then((res) => {
-      if (mounted) setZoomFactor(res.zoomFactor);
+      if (mounted) {
+        const normalized = normalizeZoom(res.zoomFactor);
+        zoomFactorRef.current = normalized;
+        setZoomFactor(normalized);
+      }
     }).catch(() => {
-      if (mounted) setZoomFactor(1);
+      if (mounted) {
+        zoomFactorRef.current = 1;
+        setZoomFactor(1);
+      }
     });
 
     return () => {
@@ -25,22 +42,69 @@ export function StatusBar() {
     };
   }, []);
 
-  const applyZoom = async (nextZoom: number) => {
-    const res = await window.electronAPI.window.setZoom(nextZoom);
-    setZoomFactor(res.zoomFactor);
-  };
+  const applyZoom = useCallback(async (nextZoom: number) => {
+    const normalized = normalizeZoom(nextZoom);
+    const requestId = ++latestZoomRequestRef.current;
 
-  const zoomOut = () => {
-    void applyZoom(zoomFactor - 0.1);
-  };
+    zoomFactorRef.current = normalized;
+    setZoomFactor(normalized);
 
-  const zoomIn = () => {
-    void applyZoom(zoomFactor + 0.1);
-  };
+    try {
+      const res = await window.electronAPI.window.setZoom(normalized);
+      if (requestId !== latestZoomRequestRef.current) return;
 
-  const resetZoom = () => {
+      const confirmed = normalizeZoom(res.zoomFactor);
+      zoomFactorRef.current = confirmed;
+      setZoomFactor(confirmed);
+    } catch {
+      if (requestId !== latestZoomRequestRef.current) return;
+      zoomFactorRef.current = normalized;
+      setZoomFactor(normalized);
+    }
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    const next = normalizeZoom(zoomFactorRef.current - 0.1);
+    void applyZoom(next);
+  }, [applyZoom]);
+
+  const zoomIn = useCallback(() => {
+    const next = normalizeZoom(zoomFactorRef.current + 0.1);
+    void applyZoom(next);
+  }, [applyZoom]);
+
+  const resetZoom = useCallback(() => {
     void applyZoom(1);
-  };
+  }, [applyZoom]);
+
+  // Ctrl+Plus / Ctrl+Minus / Ctrl+0 keyboard shortcuts for zoom
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((!e.ctrlKey && !e.metaKey) || e.altKey) return;
+
+      const key = e.key;
+      const code = e.code;
+
+      // Ctrl+= or Ctrl+Shift+= (plus) — zoom in
+      if (key === '=' || key === '+' || code === 'NumpadAdd') {
+        e.preventDefault();
+        zoomIn();
+      }
+      // Ctrl+- — zoom out
+      else if (key === '-' || code === 'NumpadSubtract') {
+        e.preventDefault();
+        zoomOut();
+      }
+      // Ctrl+0 — reset zoom
+      else if (key === '0' || code === 'Digit0' || code === 'Numpad0') {
+        e.preventDefault();
+        resetZoom();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [resetZoom, zoomIn, zoomOut]);
 
   return (
     <footer className="fixed bottom-0 w-full h-5 bg-bg-canvas flex items-center justify-between px-3 text-[10px] z-30 select-none font-display statusbar-container">

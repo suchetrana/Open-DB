@@ -169,6 +169,128 @@ export const electronAPI = {
       ipcRenderer.invoke('db:get-triggers', connectionId, schema, table)
   },
 
+  // ── Mongo (Docker exec) ──
+  mongo: {
+    execute: (containerId: string, query: string): Promise<{ documents: Record<string, unknown>[]; count: number; executionTimeMs: number }> =>
+      ipcRenderer.invoke('mongo:execute', containerId, query),
+
+    getDatabases: (containerId: string): Promise<string[]> =>
+      ipcRenderer.invoke('mongo:get-databases', containerId),
+
+    getCollections: (containerId: string, database?: string): Promise<Array<{ name: string; count: number }>> =>
+      ipcRenderer.invoke('mongo:get-collections', containerId, database),
+
+    getFields: (containerId: string, collection: string, database?: string): Promise<Array<{ name: string; type: string }>> =>
+      ipcRenderer.invoke('mongo:get-fields', containerId, collection, database)
+  },
+
+  // ── Redis (Docker exec) ──
+  redis: {
+    getInfo: (containerId: string, password?: string): Promise<Record<string, string>> =>
+      ipcRenderer.invoke('redis:info', containerId, password),
+
+    getDatabases: (containerId: string, password?: string): Promise<Array<{ index: number; keys: number }>> =>
+      ipcRenderer.invoke('redis:get-databases', containerId, password),
+
+    scanKeys: (containerId: string, pattern?: string, cursor?: string, count?: number, db?: number, password?: string): Promise<{ cursor: string; keys: Array<{ key: string; type: string; ttl: number }> }> =>
+      ipcRenderer.invoke('redis:scan-keys', containerId, pattern, cursor, count, db, password),
+
+    getKeyType: (containerId: string, key: string, db?: number, password?: string): Promise<string> =>
+      ipcRenderer.invoke('redis:get-key-type', containerId, key, db, password),
+
+    getKeyTTL: (containerId: string, key: string, db?: number, password?: string): Promise<number> =>
+      ipcRenderer.invoke('redis:get-key-ttl', containerId, key, db, password),
+
+    getKeyValue: (containerId: string, key: string, type: string, db?: number, password?: string): Promise<{ type: string; value: unknown; ttl: number; size: number }> =>
+      ipcRenderer.invoke('redis:get-key-value', containerId, key, type, db, password),
+
+    setKeyValue: (containerId: string, key: string, value: string, db?: number, password?: string): Promise<string> =>
+      ipcRenderer.invoke('redis:set-key-value', containerId, key, value, db, password),
+
+    deleteKey: (containerId: string, key: string, db?: number, password?: string): Promise<number> =>
+      ipcRenderer.invoke('redis:delete-key', containerId, key, db, password),
+
+    setKeyTTL: (containerId: string, key: string, ttl: number, db?: number, password?: string): Promise<string> =>
+      ipcRenderer.invoke('redis:set-key-ttl', containerId, key, ttl, db, password),
+
+    getDbSize: (containerId: string, db?: number, password?: string): Promise<number> =>
+      ipcRenderer.invoke('redis:get-db-size', containerId, db, password),
+
+    getKeyMetadata: (
+      containerId: string,
+      key: string,
+      db?: number,
+      password?: string
+    ): Promise<{
+      key: string;
+      type: string;
+      ttl: number;
+      size: number;
+      encoding: string | null;
+      refCount: number | null;
+      idleSeconds: number | null;
+      lfuFreq: number | null;
+      length: number | null;
+    }> => ipcRenderer.invoke('redis:get-key-metadata', containerId, key, db, password),
+
+    getKeyPage: (
+      containerId: string,
+      key: string,
+      type: string,
+      cursor?: string,
+      offset?: number,
+      limit?: number,
+      db?: number,
+      password?: string
+    ): Promise<{
+      type: string;
+      cursor: string;
+      pageStart: number;
+      pageSize: number;
+      totalApprox: number;
+      items: unknown[];
+    }> => ipcRenderer.invoke('redis:get-key-page', containerId, key, type, cursor, offset, limit, db, password),
+
+    stringAppend: (containerId: string, key: string, value: string, db?: number, password?: string): Promise<number> =>
+      ipcRenderer.invoke('redis:string-append', containerId, key, value, db, password),
+
+    stringIncr: (containerId: string, key: string, delta?: number, db?: number, password?: string): Promise<number> =>
+      ipcRenderer.invoke('redis:string-incr', containerId, key, delta, db, password),
+
+    listPush: (containerId: string, key: string, values: string[], position?: 'left' | 'right', db?: number, password?: string): Promise<number> =>
+      ipcRenderer.invoke('redis:list-push', containerId, key, values, position, db, password),
+
+    listPop: (containerId: string, key: string, position?: 'left' | 'right', count?: number, db?: number, password?: string): Promise<string[]> =>
+      ipcRenderer.invoke('redis:list-pop', containerId, key, position, count, db, password),
+
+    listSet: (containerId: string, key: string, index: number, value: string, db?: number, password?: string): Promise<string> =>
+      ipcRenderer.invoke('redis:list-set', containerId, key, index, value, db, password),
+
+    hashSet: (containerId: string, key: string, field: string, value: string, db?: number, password?: string): Promise<number> =>
+      ipcRenderer.invoke('redis:hash-set', containerId, key, field, value, db, password),
+
+    hashSetMany: (containerId: string, key: string, entries: Array<{ field: string; value: string }>, db?: number, password?: string): Promise<number> =>
+      ipcRenderer.invoke('redis:hash-set-many', containerId, key, entries, db, password),
+
+    hashDelete: (containerId: string, key: string, fields: string[], db?: number, password?: string): Promise<number> =>
+      ipcRenderer.invoke('redis:hash-delete', containerId, key, fields, db, password),
+
+    setAdd: (containerId: string, key: string, members: string[], db?: number, password?: string): Promise<number> =>
+      ipcRenderer.invoke('redis:set-add', containerId, key, members, db, password),
+
+    setRemove: (containerId: string, key: string, members: string[], db?: number, password?: string): Promise<number> =>
+      ipcRenderer.invoke('redis:set-remove', containerId, key, members, db, password),
+
+    zsetAdd: (containerId: string, key: string, member: string, score: number, db?: number, password?: string): Promise<number> =>
+      ipcRenderer.invoke('redis:zset-add', containerId, key, member, score, db, password),
+
+    zsetAddMany: (containerId: string, key: string, entries: Array<{ member: string; score: number }>, db?: number, password?: string): Promise<number> =>
+      ipcRenderer.invoke('redis:zset-add-many', containerId, key, entries, db, password),
+
+    zsetRemove: (containerId: string, key: string, members: string[], db?: number, password?: string): Promise<number> =>
+      ipcRenderer.invoke('redis:zset-remove', containerId, key, members, db, password)
+  },
+
   // ── Window ──
   window: {
     toggleMaximize: (): Promise<{ isMaximized: boolean }> =>

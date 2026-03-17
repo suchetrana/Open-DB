@@ -11,6 +11,11 @@ import type {
   RawQueryResult,
   TerminalSessionInfo,
   FileTreeNode,
+  RedisBrowserState,
+  RedisKeyViewerState,
+  RedisKeyInfo,
+  RedisValueType,
+  RedisZSetMember,
 } from '@/types'
 
 /** Map a raw column name to a ColumnDef with sensible icon defaults */
@@ -91,6 +96,10 @@ interface AppState {
   // Bottom Panel Height
   bottomPanelHeight: number
 
+  // Redis Browser / Viewer
+  redisBrowserState: RedisBrowserState | null
+  redisKeyViewerState: RedisKeyViewerState | null
+
   // ── UI Actions ──
   setSidebarView: (view: SidebarView) => void
   toggleSidebar: () => void
@@ -102,6 +111,8 @@ interface AppState {
   setSelectedText: (text: string | null) => void
   openTableTab: (schema: string, table: string) => void
   openStructureTab: (connId: string, schema: string, table: string) => void
+  openRedisBrowserTab: (containerId: string, db?: number) => void
+  openRedisKeyTab: (containerId: string, key: string, type: RedisValueType, db?: number) => void
   addNewFileTab: (title: string, content?: string) => void
   setResultsPanelMode: (mode: 'normal' | 'minimized' | 'maximized') => void
   setBottomPanelHeight: (height: number) => void
@@ -129,6 +140,27 @@ interface AppState {
   executeQuery: (selectedText?: string) => Promise<void>
   fetchDatabases: () => Promise<void>
   switchDatabase: (dbName: string) => Promise<void>
+  scanRedisKeys: (containerId: string, pattern?: string, cursor?: string, db?: number) => Promise<void>
+  loadRedisKeyValue: (containerId: string, key: string, type: RedisValueType, db?: number) => Promise<void>
+  setRedisStringValue: (containerId: string, key: string, value: string, db?: number) => Promise<void>
+  setRedisTTL: (containerId: string, key: string, ttl: number, db?: number) => Promise<void>
+  deleteRedisKey: (containerId: string, key: string, db?: number) => Promise<void>
+  redisHashSetField: (containerId: string, key: string, field: string, value: string, db?: number) => Promise<void>
+  redisHashDeleteField: (containerId: string, key: string, field: string, db?: number) => Promise<void>
+  redisListSetAt: (containerId: string, key: string, index: number, value: string, db?: number) => Promise<void>
+  redisListPushValue: (containerId: string, key: string, value: string, position?: 'left' | 'right', db?: number) => Promise<void>
+  redisSetAddMember: (containerId: string, key: string, member: string, db?: number) => Promise<void>
+  redisSetRemoveMember: (containerId: string, key: string, member: string, db?: number) => Promise<void>
+  redisZSetUpsertMember: (containerId: string, key: string, member: string, score: number, db?: number) => Promise<void>
+  redisZSetRemoveMember: (containerId: string, key: string, member: string, db?: number) => Promise<void>
+  createRedisKey: (input: {
+    containerId: string
+    key: string
+    type: Exclude<RedisValueType, 'none' | 'unknown'>
+    value: string
+    ttlSeconds?: number
+    db?: number
+  }) => Promise<void>
 
   // ── Terminal Actions ──
   openLocalTerminal: () => void
@@ -182,6 +214,9 @@ export const useAppStore = create<AppState>()(
     expandedDirs: {} as Record<string, boolean>,
 
     bottomPanelHeight: 300,
+
+    redisBrowserState: null,
+    redisKeyViewerState: null,
 
     // ── UI Actions ──
     setSidebarView: (view) =>
@@ -295,6 +330,70 @@ export const useAppStore = create<AppState>()(
           _connId: connId,
         }
         s.tabs.push(newTab)
+        s.activeTabId = id
+      }),
+
+    openRedisBrowserTab: (containerId: string, db = 0) =>
+      set((s) => {
+        const title = `Redis DB ${db}`
+        const existing = s.tabs.find(
+          (t: EditorTab) =>
+            t.type === 'redis-browser' &&
+            (t as unknown as { _containerId?: string })._containerId === containerId &&
+            ((t as unknown as { _redisDb?: number })._redisDb ?? 0) === db
+        )
+        if (existing) {
+          s.tabs.forEach((t: EditorTab) => (t.isActive = t.id === existing.id))
+          s.activeTabId = existing.id
+          return
+        }
+
+        const id = 'tab-' + Math.random().toString(36).slice(2, 8)
+        s.tabs.forEach((t: EditorTab) => (t.isActive = false))
+        const newTab: EditorTab = {
+          id,
+          title,
+          type: 'redis-browser',
+          icon: 'storage',
+          iconColor: 'text-status-red',
+          isActive: true,
+          isModified: false,
+          _containerId: containerId,
+          _redisDb: db,
+        }
+        s.tabs.push(newTab)
+        s.activeTabId = id
+      }),
+
+    openRedisKeyTab: (containerId: string, key: string, type: RedisValueType, db = 0) =>
+      set((s) => {
+        const existing = s.tabs.find(
+          (t: EditorTab) =>
+            t.type === 'redis-key' &&
+            (t as unknown as { _containerId?: string })._containerId === containerId &&
+            (t as unknown as { _redisKey?: string })._redisKey === key &&
+            ((t as unknown as { _redisDb?: number })._redisDb ?? 0) === db
+        )
+        if (existing) {
+          s.tabs.forEach((t: EditorTab) => (t.isActive = t.id === existing.id))
+          s.activeTabId = existing.id
+          return
+        }
+
+        const id = 'tab-' + Math.random().toString(36).slice(2, 8)
+        s.tabs.forEach((t: EditorTab) => (t.isActive = false))
+        s.tabs.push({
+          id,
+          title: key,
+          type: 'redis-key',
+          icon: type === 'hash' ? 'data_object' : type === 'list' ? 'view_list' : type === 'set' ? 'layers' : type === 'zset' ? 'leaderboard' : 'key',
+          iconColor: 'text-status-red',
+          isActive: true,
+          isModified: false,
+          _redisKey: key,
+          _redisDb: db,
+          _containerId: containerId,
+        })
         s.activeTabId = id
       }),
 
@@ -560,7 +659,34 @@ export const useAppStore = create<AppState>()(
     loadConnections: async () => {
       try {
         const raw = await window.electronAPI.database.getConnections()
-        const connections = raw as Connection[]
+        const loaded = raw as Connection[]
+
+        // De-dupe persisted connections that point to the same logical target.
+        const byKey = new Map<string, Connection>()
+        for (const conn of loaded) {
+          const normalizedDb = conn.type === 'redis'
+            ? '0'
+            : (conn.database ?? '')
+          const key = conn.dockerContainerId
+            ? `docker:${conn.type}:${conn.dockerContainerId}:${normalizedDb}`
+            : `tcp:${conn.type}:${conn.host}:${conn.port}:${normalizedDb}`
+
+          const existing = byKey.get(key)
+          if (!existing) {
+            byKey.set(key, conn)
+            continue
+          }
+
+          // Prefer records with password/dockerContainerId so reconnect works without prompting.
+          byKey.set(key, {
+            ...existing,
+            ...conn,
+            password: existing.password || conn.password,
+            dockerContainerId: existing.dockerContainerId || conn.dockerContainerId,
+          })
+        }
+
+        const connections = Array.from(byKey.values())
         set((s) => {
           s.connections = connections
         })
@@ -574,6 +700,35 @@ export const useAppStore = create<AppState>()(
               if (existing?.isConnected) continue
 
               const dbName = conn.database ?? (conn.type === 'mysql' ? 'mysql' : 'postgres')
+              // MongoDB auto-reconnect - no direct TCP from renderer, use Docker-backed flow.
+              if (conn.type === 'mongodb') {
+                set((s) => {
+                  const c = s.connections.find((x: Connection) => x.id === conn.id)
+                  if (c) c.isConnected = true
+                  if (!s.activeConnectionId) {
+                    s.activeConnectionId = conn.id
+                    s.selectedDatabase = conn.database || 'test'
+                  }
+                })
+                continue
+              }
+
+              // Redis auto-reconnect must validate auth/container availability before marking connected.
+              if (conn.type === 'redis') {
+                if (!conn.dockerContainerId) continue
+                const dbs = await window.electronAPI.redis.getDatabases(conn.dockerContainerId, conn.password)
+                set((s) => {
+                  const c = s.connections.find((x: Connection) => x.id === conn.id)
+                  if (c) c.isConnected = true
+                  if (!s.activeConnectionId) {
+                    s.activeConnectionId = conn.id
+                    s.selectedDatabase = '0'
+                    s.availableDatabases = dbs.length ? dbs.map((d) => String(d.index)) : ['0']
+                  }
+                })
+                continue
+              }
+
               const driver = conn.type === 'mysql' ? 'mysql' : conn.type === 'postgres' ? 'postgres' : null
               if (!driver) continue
               const normalizedPort = Number(conn.port)
@@ -622,6 +777,63 @@ export const useAppStore = create<AppState>()(
 
     connectToDatabase: async (conn: Connection, password: string) => {
       try {
+        // MongoDB connect flow uses Docker container exec; no direct driver connection required.
+        if (conn.type === 'mongodb') {
+          if (!conn.dockerContainerId) {
+            throw new Error('MongoDB connection requires a Docker container. Use the Docker panel to connect.')
+          }
+
+          set((s) => {
+            const c = s.connections.find((x: Connection) => x.id === conn.id)
+            if (c) {
+              c.isConnected = true
+              c.password = password
+            }
+            s.activeConnectionId = conn.id
+            s.selectedDatabase = conn.database || 'test'
+          })
+
+          try {
+            const dbs = await window.electronAPI.mongo.getDatabases(conn.dockerContainerId)
+            set((s) => {
+              s.availableDatabases = dbs.length ? dbs : ['test']
+            })
+          } catch {
+            // container may not have privileges to list databases
+          }
+
+          return
+        }
+
+        // Redis connect flow uses Docker container exec; no direct driver connection required.
+        if (conn.type === 'redis') {
+          if (!conn.dockerContainerId) {
+            throw new Error('Redis connection requires a Docker container. Use the Docker panel to connect.')
+          }
+
+          let dbs: Array<{ index: number; keys: number }> = []
+          try {
+            dbs = await window.electronAPI.redis.getDatabases(conn.dockerContainerId, password)
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err)
+            throw new Error(`Redis connect failed: ${message}`)
+          }
+
+          set((s) => {
+            const c = s.connections.find((x: Connection) => x.id === conn.id)
+            if (c) {
+              c.isConnected = true
+              c.password = password
+              c.dockerContainerId = c.dockerContainerId || conn.dockerContainerId
+            }
+            s.activeConnectionId = conn.id
+            s.selectedDatabase = '0'
+            s.availableDatabases = dbs.length ? dbs.map((d) => String(d.index)) : ['0']
+          })
+
+          return
+        }
+
         const driver = conn.type === 'mysql' ? 'mysql' : conn.type === 'postgres' ? 'postgres' : null
         if (!driver) {
           throw new Error(`GUI query mode currently supports PostgreSQL and MySQL. Received: ${conn.type}`)
@@ -668,6 +880,20 @@ export const useAppStore = create<AppState>()(
 
     disconnectDatabase: async (connId: string) => {
       try {
+        const disconnConn = useAppStore.getState().connections.find((c) => c.id === connId)
+        if (disconnConn?.type === 'mongodb' || disconnConn?.type === 'redis') {
+          set((s) => {
+            const c = s.connections.find((x: Connection) => x.id === connId)
+            if (c) c.isConnected = false
+            if (s.activeConnectionId === connId) {
+              s.activeConnectionId = null
+              s.availableDatabases = []
+              s.selectedDatabase = null
+            }
+          })
+          return
+        }
+
         await window.electronAPI.database.disconnect(connId)
         set((s) => {
           const c = s.connections.find((x: Connection) => x.id === connId)
@@ -685,11 +911,26 @@ export const useAppStore = create<AppState>()(
 
     addConnection: (conn: Connection) =>
       set((s) => {
-        // Prevent duplicates — don't add if same host:port:database already exists
-        const exists = s.connections.some(
-          (c: Connection) => c.host === conn.host && c.port === conn.port && c.database === conn.database
-        )
-        if (!exists) s.connections.push(conn)
+        // Upsert logical connection to avoid duplicates in sidebar.
+        const normalizedDb = conn.type === 'redis' ? '0' : (conn.database ?? '')
+        const idx = s.connections.findIndex((c: Connection) => {
+          const cDb = c.type === 'redis' ? '0' : (c.database ?? '')
+          if (c.dockerContainerId && conn.dockerContainerId) {
+            return c.type === conn.type && c.dockerContainerId === conn.dockerContainerId && cDb === normalizedDb
+          }
+          return c.type === conn.type && c.host === conn.host && c.port === conn.port && cDb === normalizedDb
+        })
+
+        if (idx >= 0) {
+          s.connections[idx] = {
+            ...s.connections[idx],
+            ...conn,
+            password: conn.password || s.connections[idx].password,
+            dockerContainerId: conn.dockerContainerId || s.connections[idx].dockerContainerId,
+          }
+        } else {
+          s.connections.push(conn)
+        }
       }),
 
     deleteConnection: async (connId: string) => {
@@ -744,6 +985,33 @@ export const useAppStore = create<AppState>()(
       }
 
       try {
+        // MongoDB query path via Docker exec + mongosh JSON output.
+        const execConn = useAppStore.getState().connections.find((c) => c.id === activeConnectionId)
+        if (execConn?.type === 'mongodb') {
+          if (!execConn.dockerContainerId) {
+            set((s) => {
+              s.isExecuting = false
+              s.queryError = 'No Docker container linked to this MongoDB connection.'
+            })
+            return
+          }
+
+          const result = await window.electronAPI.mongo.execute(execConn.dockerContainerId, sqlToExecute)
+          const allKeys = Array.from(new Set(result.documents.flatMap((d) => Object.keys(d))))
+
+          set((s) => {
+            s.queryResult = {
+              columns: allKeys.map(toColumnDef),
+              rows: result.documents as Record<string, string | number | null>[],
+              rowCount: result.count,
+              executionTimeMs: result.executionTimeMs,
+            }
+            s.isExecuting = false
+            s.queryError = null
+          })
+          return
+        }
+
         const raw = (await window.electronAPI.database.executeQuery(
           activeConnectionId,
           sqlToExecute
@@ -779,32 +1047,309 @@ export const useAppStore = create<AppState>()(
     },
 
     fetchDatabases: async () => {
-      const { activeConnectionId } = useAppStore.getState()
+      const { activeConnectionId, connections } = useAppStore.getState()
       if (!activeConnectionId) return
+      const conn = connections.find((c) => c.id === activeConnectionId)
+      if (!conn) return
+
       try {
+        if (conn.type === 'mongodb') {
+          if (!conn.dockerContainerId) return
+          const dbs = await window.electronAPI.mongo.getDatabases(conn.dockerContainerId)
+          set((s) => { s.availableDatabases = dbs.length ? dbs : ['test'] })
+          return
+        }
+
+        if (conn.type === 'redis') {
+          if (!conn.dockerContainerId) return
+          const dbs = await window.electronAPI.redis.getDatabases(conn.dockerContainerId, conn.password ?? undefined)
+          set((s) => { s.availableDatabases = dbs.length ? dbs.map((d) => String(d.index)) : ['0'] })
+          return
+        }
+
         const dbs = await window.electronAPI.database.getDatabases(activeConnectionId)
-        set((s) => {
-          s.availableDatabases = dbs
-        })
+        set((s) => { s.availableDatabases = dbs })
       } catch (err) {
         console.error('Failed to fetch databases', err)
       }
     },
 
     switchDatabase: async (dbName: string) => {
-      const { activeConnectionId } = useAppStore.getState()
+      const { activeConnectionId, connections } = useAppStore.getState()
       if (!activeConnectionId) return
+      const conn = connections.find((c) => c.id === activeConnectionId)
+      if (!conn) return
+
       try {
+        // MongoDB and Redis: just update state — db selection is per-command
+        if (conn.type === 'mongodb' || conn.type === 'redis') {
+          set((s) => {
+            s.selectedDatabase = dbName
+            const c = s.connections.find((x: Connection) => x.id === activeConnectionId)
+            if (c) c.database = dbName
+          })
+          return
+        }
+
         await window.electronAPI.database.switchDatabase(activeConnectionId, dbName)
         set((s) => {
           s.selectedDatabase = dbName
-          // Update the connection's database field
           const c = s.connections.find((x: Connection) => x.id === activeConnectionId)
           if (c) c.database = dbName
         })
       } catch (err) {
         console.error('Failed to switch database', err)
         throw err
+      }
+    },
+
+    scanRedisKeys: async (containerId: string, pattern = '*', cursor = '0', db = 0) => {
+      set((s) => {
+        const next: RedisBrowserState = s.redisBrowserState ?? {
+          containerId,
+          db,
+          pattern,
+          cursor,
+          keys: [],
+          isLoading: true,
+          error: null,
+        }
+        next.containerId = containerId
+        next.db = db
+        next.pattern = pattern
+        next.cursor = cursor
+        next.isLoading = true
+        next.error = null
+        s.redisBrowserState = next
+      })
+
+      try {
+        const { connections, activeConnectionId } = useAppStore.getState()
+        const activeConn = connections.find((c) => c.id === activeConnectionId)
+        const matchingConn =
+          (activeConn?.type === 'redis' && activeConn.dockerContainerId === containerId ? activeConn : undefined)
+          ?? connections.find((c) => c.type === 'redis' && c.dockerContainerId === containerId)
+
+        const result = await window.electronAPI.redis.scanKeys(
+          containerId,
+          pattern,
+          cursor,
+          150,
+          db,
+          matchingConn?.password ?? undefined
+        )
+        set((s) => {
+          if (!s.redisBrowserState) return
+          s.redisBrowserState.cursor = result.cursor
+          s.redisBrowserState.keys = result.keys as RedisKeyInfo[]
+          s.redisBrowserState.isLoading = false
+          s.redisBrowserState.error = null
+        })
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err)
+        set((s) => {
+          if (!s.redisBrowserState) return
+          s.redisBrowserState.isLoading = false
+          s.redisBrowserState.error = msg
+        })
+      }
+    },
+
+    loadRedisKeyValue: async (containerId: string, key: string, type: RedisValueType, db = 0) => {
+      set((s) => {
+        s.redisKeyViewerState = {
+          containerId,
+          db,
+          key,
+          type,
+          value: type === 'hash' ? {} : type === 'zset' ? [] : [],
+          ttl: -1,
+          size: 0,
+          isLoading: true,
+          isSaving: false,
+          error: null,
+        }
+      })
+
+      try {
+        const metadata = await window.electronAPI.redis.getKeyMetadata(containerId, key, db)
+        let nextValue: RedisKeyViewerState['value']
+
+        if (metadata.type === 'string') {
+          const result = await window.electronAPI.redis.getKeyValue(containerId, key, 'string', db)
+          nextValue = (typeof result.value === 'string' ? result.value : '') as RedisKeyViewerState['value']
+        } else {
+          const page = await window.electronAPI.redis.getKeyPage(containerId, key, metadata.type, '0', 0, 500, db)
+          if (metadata.type === 'hash') {
+            const hash: Record<string, string> = {}
+            for (const item of page.items as Array<{ field: string; value: string }>) {
+              hash[item.field] = item.value
+            }
+            nextValue = hash
+          } else if (metadata.type === 'zset') {
+            nextValue = (page.items as RedisZSetMember[])
+          } else {
+            nextValue = (page.items as string[])
+          }
+        }
+
+        set((s) => {
+          if (!s.redisKeyViewerState) return
+          s.redisKeyViewerState.type = metadata.type as RedisValueType
+          s.redisKeyViewerState.value = nextValue
+          s.redisKeyViewerState.ttl = metadata.ttl
+          s.redisKeyViewerState.size = metadata.size
+          s.redisKeyViewerState.isLoading = false
+          s.redisKeyViewerState.error = null
+        })
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err)
+        set((s) => {
+          if (!s.redisKeyViewerState) return
+          s.redisKeyViewerState.isLoading = false
+          s.redisKeyViewerState.error = msg
+        })
+      }
+    },
+
+    setRedisStringValue: async (containerId: string, key: string, value: string, db = 0) => {
+      set((s) => {
+        if (s.redisKeyViewerState) s.redisKeyViewerState.isSaving = true
+      })
+      try {
+        await window.electronAPI.redis.setKeyValue(containerId, key, value, db)
+        await useAppStore.getState().loadRedisKeyValue(containerId, key, 'string', db)
+      } finally {
+        set((s) => {
+          if (s.redisKeyViewerState) s.redisKeyViewerState.isSaving = false
+        })
+      }
+    },
+
+    setRedisTTL: async (containerId: string, key: string, ttl: number, db = 0) => {
+      await window.electronAPI.redis.setKeyTTL(containerId, key, ttl, db)
+      const current = useAppStore.getState().redisKeyViewerState
+      if (current && current.key === key && current.containerId === containerId && current.db === db) {
+        await useAppStore.getState().loadRedisKeyValue(containerId, key, current.type, db)
+      }
+    },
+
+    deleteRedisKey: async (containerId: string, key: string, db = 0) => {
+      await window.electronAPI.redis.deleteKey(containerId, key, db)
+      set((s) => {
+        if (s.redisKeyViewerState && s.redisKeyViewerState.key === key) {
+          s.redisKeyViewerState = null
+        }
+        const tab = s.tabs.find(
+          (t: EditorTab) =>
+            t.type === 'redis-key' &&
+            (t as unknown as { _containerId?: string })._containerId === containerId &&
+            (t as unknown as { _redisKey?: string })._redisKey === key &&
+            ((t as unknown as { _redisDb?: number })._redisDb ?? 0) === db
+        )
+        if (tab) {
+          s.tabs = s.tabs.filter((t) => t.id !== tab.id)
+          if (s.activeTabId === tab.id) {
+            s.activeTabId = s.tabs.length ? s.tabs[s.tabs.length - 1].id : null
+          }
+        }
+      })
+      const browser = useAppStore.getState().redisBrowserState
+      if (browser && browser.containerId === containerId && browser.db === db) {
+        await useAppStore.getState().scanRedisKeys(containerId, browser.pattern, '0', db)
+      }
+    },
+
+    redisHashSetField: async (containerId: string, key: string, field: string, value: string, db = 0) => {
+      await window.electronAPI.redis.hashSet(containerId, key, field, value, db)
+      await useAppStore.getState().loadRedisKeyValue(containerId, key, 'hash', db)
+    },
+
+    redisHashDeleteField: async (containerId: string, key: string, field: string, db = 0) => {
+      await window.electronAPI.redis.hashDelete(containerId, key, [field], db)
+      await useAppStore.getState().loadRedisKeyValue(containerId, key, 'hash', db)
+    },
+
+    redisListSetAt: async (containerId: string, key: string, index: number, value: string, db = 0) => {
+      await window.electronAPI.redis.listSet(containerId, key, index, value, db)
+      await useAppStore.getState().loadRedisKeyValue(containerId, key, 'list', db)
+    },
+
+    redisListPushValue: async (containerId: string, key: string, value: string, position = 'right', db = 0) => {
+      await window.electronAPI.redis.listPush(containerId, key, [value], position, db)
+      await useAppStore.getState().loadRedisKeyValue(containerId, key, 'list', db)
+    },
+
+    redisSetAddMember: async (containerId: string, key: string, member: string, db = 0) => {
+      await window.electronAPI.redis.setAdd(containerId, key, [member], db)
+      await useAppStore.getState().loadRedisKeyValue(containerId, key, 'set', db)
+    },
+
+    redisSetRemoveMember: async (containerId: string, key: string, member: string, db = 0) => {
+      await window.electronAPI.redis.setRemove(containerId, key, [member], db)
+      await useAppStore.getState().loadRedisKeyValue(containerId, key, 'set', db)
+    },
+
+    redisZSetUpsertMember: async (containerId: string, key: string, member: string, score: number, db = 0) => {
+      await window.electronAPI.redis.zsetAdd(containerId, key, member, score, db)
+      await useAppStore.getState().loadRedisKeyValue(containerId, key, 'zset', db)
+    },
+
+    redisZSetRemoveMember: async (containerId: string, key: string, member: string, db = 0) => {
+      await window.electronAPI.redis.zsetRemove(containerId, key, [member], db)
+      await useAppStore.getState().loadRedisKeyValue(containerId, key, 'zset', db)
+    },
+
+    createRedisKey: async ({ containerId, key, type, value, ttlSeconds, db = 0 }) => {
+      const trimmedKey = key.trim()
+      if (!trimmedKey) throw new Error('Key name is required')
+
+      const lines = value
+        .split('\n')
+        .map((x) => x.trim())
+        .filter(Boolean)
+
+      if (type === 'string') {
+        await window.electronAPI.redis.setKeyValue(containerId, trimmedKey, value, db)
+      } else if (type === 'hash') {
+        const entries: Array<{ field: string; value: string }> = []
+        for (const line of lines) {
+          const idx = line.indexOf('=')
+          if (idx <= 0) throw new Error('Hash values must be in field=value format')
+          const field = line.slice(0, idx).trim()
+          const fieldValue = line.slice(idx + 1)
+          if (!field) throw new Error('Hash field cannot be empty')
+          entries.push({ field, value: fieldValue })
+        }
+        await window.electronAPI.redis.hashSetMany(containerId, trimmedKey, entries, db)
+      } else if (type === 'list') {
+        if (lines.length === 0) throw new Error('List requires at least one item (one per line)')
+        await window.electronAPI.redis.listPush(containerId, trimmedKey, lines, 'right', db)
+      } else if (type === 'set') {
+        if (lines.length === 0) throw new Error('Set requires at least one member (one per line)')
+        await window.electronAPI.redis.setAdd(containerId, trimmedKey, lines, db)
+      } else if (type === 'zset') {
+        if (lines.length === 0) throw new Error('ZSet requires members in member=score format')
+        const entries: Array<{ member: string; score: number }> = []
+        for (const line of lines) {
+          const idx = line.indexOf('=')
+          if (idx <= 0) throw new Error('ZSet values must be in member=score format')
+          const member = line.slice(0, idx).trim()
+          const scoreRaw = line.slice(idx + 1).trim()
+          const score = Number(scoreRaw)
+          if (!member || Number.isNaN(score)) throw new Error('Invalid zset line: expected member=score')
+          entries.push({ member, score })
+        }
+        await window.electronAPI.redis.zsetAddMany(containerId, trimmedKey, entries, db)
+      }
+
+      if (typeof ttlSeconds === 'number' && ttlSeconds > 0) {
+        await window.electronAPI.redis.setKeyTTL(containerId, trimmedKey, ttlSeconds, db)
+      }
+
+      const browser = useAppStore.getState().redisBrowserState
+      if (browser && browser.containerId === containerId && browser.db === db) {
+        await useAppStore.getState().scanRedisKeys(containerId, browser.pattern, '0', db)
       }
     },
 

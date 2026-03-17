@@ -26,7 +26,7 @@ const DB_PASSWORD_CANDIDATES: Record<string, string[]> = {
   postgres: ["postgres", "localdev", "root"],
   mysql: ["root", "localdev", "mysql"],
   mongodb: ["admin", "localdev", "mongodb"],
-  redis: [""],
+  redis: ["", "redis", "localdev", "root"],
 };
 
 function StatusDot({ status }: { status: ContainerStatus }) {
@@ -189,7 +189,18 @@ export function DockerContainers() {
     setConnectingContainerId(c.id);
 
     const existingConn = findConnectionForContainer(c);
-    const conn: Connection = existingConn ?? {
+    const conn: Connection = existingConn
+      ? {
+          ...existingConn,
+          name: existingConn.name || c.name,
+          type: dbType,
+          host: existingConn.host || "localhost",
+          port: existingConn.port || c.port,
+          username: existingConn.username ?? user,
+          database: existingConn.database || db,
+          dockerContainerId: c.id,
+        }
+      : {
       id: genId(),
       name: c.name,
       type: dbType,
@@ -203,8 +214,10 @@ export function DockerContainers() {
 
     if (!existingConn) {
       addConnection(conn);
-      await window.electronAPI.database.saveConnection(conn).catch(() => {});
+    } else {
+      addConnection(conn);
     }
+    await window.electronAPI.database.saveConnection(conn).catch(() => {});
 
     try {
       if (conn.password) {
@@ -227,6 +240,20 @@ export function DockerContainers() {
           return;
         } catch {
           // keep trying candidates
+        }
+      }
+
+      if (dbType === 'redis') {
+        const entered = window.prompt(`Redis password required for ${c.name}. Enter password:`, "")
+        if (entered !== null) {
+          try {
+            await connectToDatabase(conn, entered)
+            await window.electronAPI.database.saveConnection({ ...conn, password: entered })
+            setSidebarView('schema')
+            return
+          } catch {
+            window.alert('Redis authentication failed. Please verify password and try again from Connections.')
+          }
         }
       }
 

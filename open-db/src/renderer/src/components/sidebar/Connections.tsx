@@ -112,6 +112,7 @@ export function Connections() {
   const loadConnections = useAppStore((s) => s.loadConnections);
   const connectToDatabase = useAppStore((s) => s.connectToDatabase);
   const addNewFileTab = useAppStore((s) => s.addNewFileTab);
+  const openRedisBrowserTab = useAppStore((s) => s.openRedisBrowserTab);
   const [showForm, setShowForm] = useState(false);
   const [reconnectingId, setReconnectingId] = useState<string | null>(null);
   const [passwordEntryId, setPasswordEntryId] = useState<string | null>(null);
@@ -138,7 +139,11 @@ export function Connections() {
       await window.electronAPI.database.saveConnection({ ...conn, password });
       setPasswordEntryId(null);
       setPasswordDraft("");
-      ensureQueryTabReady();
+      if (conn.type === 'redis' && conn.dockerContainerId) {
+        openRedisBrowserTab(conn.dockerContainerId, 0);
+      } else {
+        ensureQueryTabReady();
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Connection failed. Check password and connection details.";
       setReconnectError(msg);
