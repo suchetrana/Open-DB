@@ -369,3 +369,25 @@ npm run dev
 - Glass widgets use an explicit dark background for reliable text contrast.
 - Added MySQL GUI support in the main DB service (connect/test/query/introspection) with type-aware IPC flow.
 - Improved GUI-first connection flow with inline password reconnect guidance.
+- Added MongoDB query support via Docker `mongosh` exec (no `mongodb` npm dependency), wired through new `mongo:*` IPC channels and preload/store integration.
+- Added Redis browser and key editor foundations: schema sidebar key scan, Redis browser tab, and Redis key tabs.
+- Added type-aware Redis key editing for string/hash/list/set/zset via dedicated IPC channels and service methods.
+- Added a DataGrip-style JSON tree viewer for Redis string values containing JSON (search, expand/collapse all, copy path/value, inline leaf edit).
+- Added paged Redis value browsing with virtualized rendering for large hash/list/set/zset keys and rich key metadata (encoding, refcount, idle, LFU, length).
+- Added debounced optimistic auto-save with rollback UX for non-string Redis edits in the key viewer.
+- Added GUI-first Redis key creation (string/hash/list/set/zset) in the browser, plus quick access to redis-cli terminal.
+- Fixed Docker-panel Redis direct-connect flow to validate auth before marking connected, with password retry prompt fallback.
+- Hardened Redis IPC: removed raw `redis:execute` bridge exposure from preload/renderer API and rely on typed channels.
+- Added centralized Redis container verification in main service (id format, running state, Redis image) for every Docker exec call.
+- Added Redis auth-aware command builder (`-a` support + storage/env password resolution), non-string key paging enforcement, batched key metadata scan, and batched hash/zset key creation APIs.
+- Updated Redis key viewer to pass resolved connection password on all typed Redis IPC calls for reliable runtime-authenticated edits.
+- Updated Redis auto-reconnect to validate container/auth via `redis:get-databases` before setting `isConnected`.
+- Hardened Mongo service: strict container/id validation, strict identifier validation, removed raw `db.*` passthrough, and structured-query-only execution path.
+- Hardened Redis service/IPC: duplicate-safe IPC registration, quoted command token parsing for safe allow-list execution, SCAN JSON parsing resilient to newline-containing keys, and Docker exec timeout enforcement.
+- Updated Mongo structured query builder to use `db.getSiblingDB(...)` expressions (no `use ...;` prefix in eval strings).
+- Relaxed Mongo identifier validation to allow dot/hyphen while still rejecting forbidden characters (`NUL`, `/`, `\\`, `"`, `$`).
+- Added TTL-based Redis password cache with periodic sweep plus explicit invalidation/clear APIs.
+- Hardened Redis zset page parsing to reject malformed unpaired member/score responses.
+- Improved Redis UI resilience: safer key-create TTL/key validation, non-negative list range display, better mutation/delete error feedback, and current-state snapshot rollback for optimistic deletes.
+- Stabilized UI zoom controls: step-clamped and rounded to 0.1, protected against rapid-click response ordering races, and normalized `window:get-zoom` values to eliminate persisted floating-point drift.
+- Hardened renderer zoom keyboard shortcuts (`Ctrl/Cmd + =/+`, `Ctrl/Cmd + -`, `Ctrl/Cmd + 0`) with stable callbacks and key/code matching that includes numpad add/subtract/0.

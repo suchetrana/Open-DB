@@ -4,6 +4,7 @@ import { EditorToolbar } from "./EditorToolbar";
 import { SqlEditor } from "./SqlEditor";
 import { TableStructureView } from "./TableStructureView";
 import { RedisKeyViewer } from "./RedisKeyViewer";
+import { MongoCollectionViewer } from "./MongoCollectionViewer";
 import { RedisDatabaseBrowser } from "@/components/sidebar/RedisDatabaseBrowser";
 import { ResultsPanel } from "@/components/results/ResultsPanel";
 import { Icon, Splitter } from "@/components/ui";
@@ -71,6 +72,7 @@ export function EditorArea() {
   const isStructureTab = activeTab?.type === 'structure';
   const isRedisKeyTab = activeTab?.type === 'redis-key';
   const isRedisBrowserTab = activeTab?.type === 'redis-browser';
+  const isMongoCollectionTab = activeTab?.type === 'mongo-collection';
 
   // Split pane: track editor height ratio as a percentage
   const containerRef = useRef<HTMLDivElement>(null);
@@ -91,6 +93,15 @@ export function EditorArea() {
   // Ctrl+S shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isEditable =
+        !!target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable);
+      if (isEditable) return;
+
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
         saveCurrentFile();
@@ -140,6 +151,19 @@ export function EditorArea() {
           containerId={(activeTab as any)._containerId}
           db={(activeTab as any)._redisDb ?? 0}
           embeddedInEditor
+        />
+      </>
+    );
+  }
+
+  if (isMongoCollectionTab && activeTab) {
+    return (
+      <>
+        <EditorTabs />
+        <MongoCollectionViewer
+          containerId={(activeTab as any)._containerId}
+          database={(activeTab as any)._mongoDb}
+          collection={(activeTab as any)._mongoCollection}
         />
       </>
     );

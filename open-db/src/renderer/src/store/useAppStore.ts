@@ -48,6 +48,18 @@ function fileTabIcon(fileName: string): { icon: string; iconColor: string } {
   return { icon: 'description', iconColor: 'text-syntax-function' }
 }
 
+function matchesRedisPattern(key: string, pattern: string): boolean {
+  if (!pattern || pattern === '*') return true
+  const escaped = pattern
+    .replace(/[|\\{}()[\]^$+?.]/g, '\\$&')
+    .replace(/\*/g, '.*')
+  try {
+    return new RegExp(`^${escaped}$`).test(key)
+  } catch {
+    return true
+  }
+}
+
 /* ── Store Shape ── */
 interface AppState {
   // Sidebar
@@ -113,6 +125,7 @@ interface AppState {
   openStructureTab: (connId: string, schema: string, table: string) => void
   openRedisBrowserTab: (containerId: string, db?: number) => void
   openRedisKeyTab: (containerId: string, key: string, type: RedisValueType, db?: number) => void
+  openMongoCollectionTab: (containerId: string, database: string, collection: string) => void
   addNewFileTab: (title: string, content?: string) => void
   setResultsPanelMode: (mode: 'normal' | 'minimized' | 'maximized') => void
   setBottomPanelHeight: (height: number) => void
@@ -392,6 +405,39 @@ export const useAppStore = create<AppState>()(
           isModified: false,
           _redisKey: key,
           _redisDb: db,
+          _containerId: containerId,
+        })
+        s.activeTabId = id
+      }),
+
+    openMongoCollectionTab: (containerId: string, database: string, collection: string) =>
+      set((s) => {
+        const title = `${database}.${collection}`
+        const existing = s.tabs.find(
+          (t: EditorTab) =>
+            t.type === 'mongo-collection' &&
+            (t as unknown as { _mongoDb?: string })._mongoDb === database &&
+            (t as unknown as { _mongoCollection?: string })._mongoCollection === collection &&
+            (t as unknown as { _containerId?: string })._containerId === containerId
+        )
+        if (existing) {
+          s.tabs.forEach((t: EditorTab) => (t.isActive = t.id === existing.id))
+          s.activeTabId = existing.id
+          return
+        }
+
+        const id = 'tab-' + Math.random().toString(36).slice(2, 8)
+        s.tabs.forEach((t: EditorTab) => (t.isActive = false))
+        s.tabs.push({
+          id,
+          title,
+          type: 'mongo-collection',
+          icon: 'collections_bookmark',
+          iconColor: 'text-syntax-decorator',
+          isActive: true,
+          isModified: false,
+          _mongoDb: database,
+          _mongoCollection: collection,
           _containerId: containerId,
         })
         s.activeTabId = id
@@ -796,7 +842,15 @@ export const useAppStore = create<AppState>()(
           try {
             const dbs = await window.electronAPI.mongo.getDatabases(conn.dockerContainerId)
             set((s) => {
-              s.availableDatabases = dbs.length ? dbs : ['test']
+              const available = dbs.length ? dbs : ['test']
+              const current = s.selectedDatabase ?? conn.database ?? 'test'
+              const nextDb = available.includes(current) ? current : available[0]
+
+              s.availableDatabases = available
+              s.selectedDatabase = nextDb
+
+              const c = s.connections.find((x: Connection) => x.id === conn.id)
+              if (c) c.database = nextDb
             })
           } catch {
             // container may not have privileges to list databases
@@ -1056,7 +1110,17 @@ export const useAppStore = create<AppState>()(
         if (conn.type === 'mongodb') {
           if (!conn.dockerContainerId) return
           const dbs = await window.electronAPI.mongo.getDatabases(conn.dockerContainerId)
-          set((s) => { s.availableDatabases = dbs.length ? dbs : ['test'] })
+          set((s) => {
+            const available = dbs.length ? dbs : ['test']
+            const current = s.selectedDatabase ?? conn.database ?? 'test'
+            const nextDb = available.includes(current) ? current : available[0]
+
+            s.availableDatabases = available
+            s.selectedDatabase = nextDb
+
+            const c = s.connections.find((x: Connection) => x.id === activeConnectionId)
+            if (c) c.database = nextDb
+          })
           return
         }
 
@@ -1130,7 +1194,8 @@ export const useAppStore = create<AppState>()(
           (activeConn?.type === 'redis' && activeConn.dockerContainerId === containerId ? activeConn : undefined)
           ?? connections.find((c) => c.type === 'redis' && c.dockerContainerId === containerId)
 
-        const result = await window.electronAPI.redis.scanKeys(
+        let scannedDb = db
+        let result = await window.electronAPI.redis.scanKeys(
           containerId,
           pattern,
           cursor,
@@ -1138,8 +1203,39 @@ export const useAppStore = create<AppState>()(
           db,
           matchingConn?.password ?? undefined
         )
+
+        // If wildcard scan on DB0 is empty, auto-probe for a non-empty Redis DB and retry there.
+        if (pattern === '*' && cursor === '0' && db === 0 && result.cursor === '0' && result.keys.length === 0) {
+          try {
+            const dbs = await window.electronAPI.redis.getDatabases(containerId, matchingConn?.password ?? undefined)
+            const fallbackDb = dbs.find((d) => d.index !== db && d.keys > 0)
+            if (fallbackDb) {
+              scannedDb = fallbackDb.index
+              result = await window.electronAPI.redis.scanKeys(
+                containerId,
+                pattern,
+                '0',
+                150,
+                scannedDb,
+                matchingConn?.password ?? undefined
+              )
+
+              set((s) => {
+                s.selectedDatabase = String(scannedDb)
+                const c = s.connections.find((x: Connection) => x.id === s.activeConnectionId)
+                if (c?.type === 'redis') {
+                  c.database = String(scannedDb)
+                }
+              })
+            }
+          } catch {
+            // Keep empty-state behavior if DB probing fails.
+          }
+        }
+
         set((s) => {
           if (!s.redisBrowserState) return
+          s.redisBrowserState.db = scannedDb
           s.redisBrowserState.cursor = result.cursor
           s.redisBrowserState.keys = result.keys as RedisKeyInfo[]
           s.redisBrowserState.isLoading = false
@@ -1350,6 +1446,24 @@ export const useAppStore = create<AppState>()(
       const browser = useAppStore.getState().redisBrowserState
       if (browser && browser.containerId === containerId && browser.db === db) {
         await useAppStore.getState().scanRedisKeys(containerId, browser.pattern, '0', db)
+
+        const refreshed = useAppStore.getState().redisBrowserState
+        if (
+          refreshed
+          && refreshed.containerId === containerId
+          && refreshed.db === db
+          && matchesRedisPattern(trimmedKey, refreshed.pattern)
+          && !refreshed.keys.some((k) => k.key === trimmedKey)
+        ) {
+          set((s) => {
+            if (!s.redisBrowserState) return
+            s.redisBrowserState.keys.unshift({
+              key: trimmedKey,
+              type,
+              ttl: typeof ttlSeconds === 'number' && ttlSeconds > 0 ? ttlSeconds : -1,
+            })
+          })
+        }
       }
     },
 

@@ -18,7 +18,7 @@ const DB_DEFAULT_USERS: Record<string, string> = {
 const DB_DEFAULT_DBS: Record<string, string> = {
   postgres: "postgres",
   mysql: "mysql",
-  mongodb: "admin",
+  mongodb: "test",
   redis: "",
 };
 
@@ -217,7 +217,9 @@ export function DockerContainers() {
     } else {
       addConnection(conn);
     }
-    await window.electronAPI.database.saveConnection(conn).catch(() => {});
+    await window.electronAPI.database.saveConnection(conn).catch((err: unknown) => {
+      console.error(`[Docker connect] Failed to save connection ${conn.id} (${conn.name})`, err);
+    });
 
     try {
       if (conn.password) {

@@ -354,10 +354,19 @@ export function RedisKeyViewer({ containerId, keyName, db = 0, typeHint = "strin
   const handleDelete = async () => {
     const ok = window.confirm(`Delete key \"${keyName}\"? This cannot be undone.`);
     if (!ok) return;
-    await deleteRedisKey(containerId, keyName, db);
+    try {
+      await deleteRedisKey(containerId, keyName, db);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setSaveError(msg);
+      window.alert(`Failed to delete key: ${msg}`);
+    }
   };
 
   const pageItems = page?.items ?? [];
+  const listStart = page?.pageStart ?? 0;
+  const listLength = page?.items.length ?? 0;
+  const listEnd = listLength > 0 ? listStart + listLength - 1 : listStart;
 
   const renderHashRow = (entry: HashEntry, index: number) => (
     <div className="grid grid-cols-[180px_1fr_auto] gap-2 items-center px-1 h-full">
@@ -390,8 +399,12 @@ export function RedisKeyViewer({ containerId, keyName, db = 0, typeHint = "strin
       />
       <button
         onClick={async () => {
-          const snapshot = pageItems as HashEntry[];
-          setPage((prev) => prev ? { ...prev, items: (prev.items as HashEntry[]).filter((x) => x.field !== entry.field) } : prev);
+          let snapshot: HashEntry[] = [];
+          setPage((prev) => {
+            if (!prev) return prev;
+            snapshot = [...(prev.items as HashEntry[])];
+            return { ...prev, items: (prev.items as HashEntry[]).filter((x) => x.field !== entry.field) };
+          });
           try {
             await window.electronAPI.redis.hashDelete(containerId, keyName, [entry.field], db, redisPassword);
             void fetchMetadata();
@@ -445,8 +458,12 @@ export function RedisKeyViewer({ containerId, keyName, db = 0, typeHint = "strin
       <div className="text-[11px] text-text-primary font-mono flex-1 truncate">{member}</div>
       <button
         onClick={async () => {
-          const snapshot = pageItems as string[];
-          setPage((prev) => prev ? { ...prev, items: (prev.items as string[]).filter((x) => x !== member) } : prev);
+          let snapshot: string[] = [];
+          setPage((prev) => {
+            if (!prev) return prev;
+            snapshot = [...(prev.items as string[])];
+            return { ...prev, items: (prev.items as string[]).filter((x) => x !== member) };
+          });
           try {
             await window.electronAPI.redis.setRemove(containerId, keyName, [member], db, redisPassword);
             void fetchMetadata();
@@ -495,8 +512,12 @@ export function RedisKeyViewer({ containerId, keyName, db = 0, typeHint = "strin
       />
       <button
         onClick={async () => {
-          const snapshot = pageItems as ZSetEntry[];
-          setPage((prev) => prev ? { ...prev, items: (prev.items as ZSetEntry[]).filter((x) => x.member !== entry.member) } : prev);
+          let snapshot: ZSetEntry[] = [];
+          setPage((prev) => {
+            if (!prev) return prev;
+            snapshot = [...(prev.items as ZSetEntry[])];
+            return { ...prev, items: (prev.items as ZSetEntry[]).filter((x) => x.member !== entry.member) };
+          });
           try {
             await window.electronAPI.redis.zsetRemove(containerId, keyName, [entry.member], db, redisPassword);
             void fetchMetadata();
@@ -680,7 +701,7 @@ export function RedisKeyViewer({ containerId, keyName, db = 0, typeHint = "strin
 
         {type === "list" && (
           <>
-            <div className="text-[10px] text-text-muted">Showing items {page?.pageStart ?? 0} - {(page?.pageStart ?? 0) + ((page?.items.length ?? 0) - 1)} of ~{page?.totalApprox ?? 0}</div>
+            <div className="text-[10px] text-text-muted">Showing items {listStart} - {listEnd} of ~{page?.totalApprox ?? 0}</div>
             <VirtualRows
               items={(page?.items as string[]) ?? []}
               rowHeight={ROW_HEIGHT}
@@ -692,9 +713,14 @@ export function RedisKeyViewer({ containerId, keyName, db = 0, typeHint = "strin
               <button
                 onClick={async () => {
                   if (!listValue) return;
-                  await window.electronAPI.redis.listPush(containerId, keyName, [listValue], "left", db, redisPassword);
-                  setListValue("");
-                  await refreshCurrent();
+                  setSaveError(null);
+                  try {
+                    await window.electronAPI.redis.listPush(containerId, keyName, [listValue], "left", db, redisPassword);
+                    setListValue("");
+                    await refreshCurrent();
+                  } catch (err: unknown) {
+                    setSaveError(err instanceof Error ? err.message : String(err));
+                  }
                 }}
                 className="px-2 py-1 text-[10px] rounded-item border border-border-default text-text-primary"
               >
@@ -703,9 +729,14 @@ export function RedisKeyViewer({ containerId, keyName, db = 0, typeHint = "strin
               <button
                 onClick={async () => {
                   if (!listValue) return;
-                  await window.electronAPI.redis.listPush(containerId, keyName, [listValue], "right", db, redisPassword);
-                  setListValue("");
-                  await refreshCurrent();
+                  setSaveError(null);
+                  try {
+                    await window.electronAPI.redis.listPush(containerId, keyName, [listValue], "right", db, redisPassword);
+                    setListValue("");
+                    await refreshCurrent();
+                  } catch (err: unknown) {
+                    setSaveError(err instanceof Error ? err.message : String(err));
+                  }
                 }}
                 className="px-2 py-1 text-[10px] rounded-item border border-border-default text-text-primary"
               >

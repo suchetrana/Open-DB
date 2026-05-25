@@ -6,6 +6,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Icon, ContextMenu } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 import { RedisDatabaseBrowser } from "./RedisDatabaseBrowser";
+import { MongoDatabaseBrowser } from "./MongoDatabaseBrowser";
 import { clsx } from "clsx";
 import type { TableNode, ColumnNode, ContextMenuItem, IndexNode } from "@/types";
 
@@ -553,6 +554,9 @@ export function DatabaseExplorer() {
   const switchDatabase = useAppStore((s) => s.switchDatabase);
   const fetchDatabases = useAppStore((s) => s.fetchDatabases);
   const activeConn = connections.find((c) => c.id === activeConnectionId);
+  const parsedRedisDb = Number.parseInt(selectedDatabase ?? '0', 10);
+  const safeRedisDb = Number.isFinite(parsedRedisDb) ? parsedRedisDb : 0;
+  const isSqlConn = activeConn?.type === 'postgres' || activeConn?.type === 'mysql';
 
   const [switching, setSwitching] = useState(false);
 
@@ -610,15 +614,37 @@ export function DatabaseExplorer() {
         {activeConn?.isConnected && activeConn.type === 'redis' && activeConn.dockerContainerId && (
           <RedisDatabaseBrowser
             containerId={activeConn.dockerContainerId}
-            db={Number(selectedDatabase ?? '0')}
+            db={safeRedisDb}
           />
         )}
 
-        {activeConn?.type !== 'redis' && switching && (
+        {activeConn?.isConnected && activeConn.type === 'redis' && !activeConn.dockerContainerId && (
+          <div className="text-text-muted text-[11px] py-2 pl-6">
+            Direct Redis connection detected. Docker-backed key browser is unavailable for this connection.
+          </div>
+        )}
+
+        {activeConn?.isConnected && activeConn.type === 'mongodb' && activeConn.dockerContainerId && (
+          <MongoDatabaseBrowser
+            containerId={activeConn.dockerContainerId}
+            selectedDatabase={selectedDatabase}
+            availableDatabases={availableDatabases}
+            onSwitchDatabase={handleSwitchDb}
+            isSwitching={switching}
+          />
+        )}
+
+        {activeConn?.isConnected && activeConn.type === 'mongodb' && !activeConn.dockerContainerId && (
+          <div className="text-text-muted text-[11px] py-2 pl-6">
+            Direct MongoDB connection detected. Docker-backed browser is unavailable for this connection.
+          </div>
+        )}
+
+        {isSqlConn && switching && (
           <div className="text-text-muted text-[10px] py-1 pl-6">Switching database…</div>
         )}
 
-        {activeConn?.isConnected && activeConn.type !== 'redis' && availableDatabases.length > 0 && (
+        {activeConn?.isConnected && isSqlConn && availableDatabases.length > 0 && (
           <>
             {availableDatabases.map((db) => (
               <DatabaseItem
@@ -632,7 +658,7 @@ export function DatabaseExplorer() {
           </>
         )}
 
-        {activeConn?.isConnected && activeConn.type !== 'redis' && availableDatabases.length === 0 && !switching && (
+        {activeConn?.isConnected && isSqlConn && availableDatabases.length === 0 && !switching && (
           <div className="text-text-muted text-[10px] py-1 pl-6">
             No databases found.{" "}
             <button

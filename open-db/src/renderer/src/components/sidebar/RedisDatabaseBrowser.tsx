@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Icon, ContextMenu } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 import type { ContextMenuItem, RedisValueType } from "@/types";
@@ -39,6 +39,7 @@ export function RedisDatabaseBrowser({ containerId, db = 0, embeddedInEditor = f
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; keyName: string; keyType: RedisValueType } | null>(null);
+  const newKeyInputRef = useRef<HTMLInputElement | null>(null);
 
   const keys = useMemo(() => {
     if (!redisBrowserState) return [];
@@ -50,6 +51,15 @@ export function RedisDatabaseBrowser({ containerId, db = 0, embeddedInEditor = f
   useEffect(() => {
     void scanRedisKeys(containerId, "*", "0", db);
   }, [containerId, db, scanRedisKeys]);
+
+  useEffect(() => {
+    if (!addOpen) return;
+    const id = window.setTimeout(() => {
+      newKeyInputRef.current?.focus();
+      newKeyInputRef.current?.select();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [addOpen]);
 
   const handleScan = async (startCursor = "0") => {
     setActionError(null);
@@ -66,16 +76,31 @@ export function RedisDatabaseBrowser({ containerId, db = 0, embeddedInEditor = f
     setAddError(null);
     setIsAdding(true);
     try {
-      const ttl = newTtl.trim() ? Number(newTtl.trim()) : undefined;
+      const trimmedKey = newKey.trim();
+      if (!trimmedKey) {
+        setAddError("Key name is required.");
+        return;
+      }
+
+      let ttl: number | undefined;
+      const trimmedTtl = newTtl.trim();
+      if (trimmedTtl) {
+        const parsedTtl = Number.parseInt(trimmedTtl, 10);
+        if (Number.isNaN(parsedTtl) || parsedTtl < 0) {
+          setAddError("TTL must be a non-negative integer.");
+          return;
+        }
+        ttl = parsedTtl;
+      }
+
       await createRedisKey({
         containerId,
         db,
-        key: newKey,
+        key: trimmedKey,
         type: newType,
         value: newValue,
         ttlSeconds: ttl,
       });
-      const createdKey = newKey.trim();
       setPattern("*");
       setCursor("0");
       setAddOpen(false);
@@ -83,8 +108,8 @@ export function RedisDatabaseBrowser({ containerId, db = 0, embeddedInEditor = f
       setNewValue("");
       setNewTtl("");
       await scanRedisKeys(containerId, "*", "0", db);
-      openRedisKeyTab(containerId, createdKey, newType, db);
-      setActionMessage(`Created key ${createdKey}`);
+      openRedisKeyTab(containerId, trimmedKey, newType, db);
+      setActionMessage(`Created key ${trimmedKey}`);
     } catch (err) {
       setAddError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -105,28 +130,45 @@ export function RedisDatabaseBrowser({ containerId, db = 0, embeddedInEditor = f
       ? redisBrowserState.cursor
       : "0";
 
+  const openRedisKeyView = (keyName: string, keyType: RedisValueType) => {
+    openRedisKeyTab(containerId, keyName, keyType, db);
+    setActionMessage(`Opened value for ${keyName}`);
+  };
+
   const contextItems: ContextMenuItem[] = contextMenu
     ? [
         {
           label: "Edit Key",
           icon: "edit",
           iconColor: "text-syntax-function",
-          action: () => openRedisKeyTab(containerId, contextMenu.keyName, contextMenu.keyType, db),
+          action: () => {
+            openRedisKeyTab(containerId, contextMenu.keyName, contextMenu.keyType, db);
+            setActionMessage(`Editing key ${contextMenu.keyName}`);
+          },
         },
         {
           label: "Open Value",
           icon: "preview",
           iconColor: "text-text-secondary",
-          action: () => openRedisKeyTab(containerId, contextMenu.keyName, contextMenu.keyType, db),
+          action: () => openRedisKeyView(contextMenu.keyName, contextMenu.keyType),
         },
         {
           label: "Delete Key",
           icon: "delete",
           danger: true,
-          action: () => {
+          action: async () => {
             const ok = window.confirm(`Delete key \"${contextMenu.keyName}\"?`);
             if (!ok) return;
-            void deleteRedisKey(containerId, contextMenu.keyName, db);
+            try {
+              await deleteRedisKey(containerId, contextMenu.keyName, db);
+              await scanRedisKeys(containerId, "*", "0", db);
+              setActionMessage(`Deleted key ${contextMenu.keyName}`);
+              setContextMenu(null);
+            } catch (err: unknown) {
+              const message = err instanceof Error ? err.message : String(err);
+              setActionError(message);
+              window.alert(`Failed to delete key: ${message}`);
+            }
           },
         },
         {
@@ -208,15 +250,32 @@ export function RedisDatabaseBrowser({ containerId, db = 0, embeddedInEditor = f
         <div className="px-2 py-2 border-b border-border-subtle flex flex-col gap-2 bg-bg-surface/40">
           <div className="flex items-center gap-2">
             <input
+              ref={newKeyInputRef}
               value={newKey}
-              onChange={(e) => setNewKey(e.target.value)}
+              onChange={(e) => {
+                console.debug('[Redis:AddKey] newKey onChange', e.target.value)
+                setNewKey(e.target.value)
+              }}
+              onFocus={() => console.debug('[Redis:AddKey] newKey onFocus')}
+              onKeyDown={(e) => console.debug('[Redis:AddKey] newKey onKeyDown', e.key)}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              tabIndex={0}
               placeholder="Key name (e.g. user:1001)"
-              className="glass-input bg-bg-input px-2 py-1.5 text-[11px] text-text-primary flex-1 outline-none"
+              className="glass-input bg-bg-input px-2 py-1.5 text-[11px] text-text-primary flex-1 outline-none pointer-events-auto"
             />
             <select
               value={newType}
-              onChange={(e) => setNewType(e.target.value as Exclude<RedisValueType, "none" | "unknown">)}
-              className="glass-input bg-bg-input px-2 py-1.5 text-[11px] text-text-primary outline-none"
+              onChange={(e) => {
+                console.debug('[Redis:AddKey] newType onChange', e.target.value)
+                setNewType(e.target.value as Exclude<RedisValueType, "none" | "unknown">)
+              }}
+              onFocus={() => console.debug('[Redis:AddKey] newType onFocus')}
+              onKeyDown={(e) => console.debug('[Redis:AddKey] newType onKeyDown', e.key)}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              tabIndex={0}
+              className="glass-input bg-bg-input px-2 py-1.5 text-[11px] text-text-primary outline-none pointer-events-auto"
             >
               <option value="string">string</option>
               <option value="hash">hash</option>
@@ -226,16 +285,32 @@ export function RedisDatabaseBrowser({ containerId, db = 0, embeddedInEditor = f
             </select>
             <input
               value={newTtl}
-              onChange={(e) => setNewTtl(e.target.value)}
+              onChange={(e) => {
+                console.debug('[Redis:AddKey] ttl onChange', e.target.value)
+                setNewTtl(e.target.value)
+              }}
+              onFocus={() => console.debug('[Redis:AddKey] ttl onFocus')}
+              onKeyDown={(e) => console.debug('[Redis:AddKey] ttl onKeyDown', e.key)}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              tabIndex={0}
               placeholder="TTL(s)"
-              className="glass-input bg-bg-input px-2 py-1.5 text-[11px] text-text-primary w-20 outline-none"
+              className="glass-input bg-bg-input px-2 py-1.5 text-[11px] text-text-primary w-20 outline-none pointer-events-auto"
             />
           </div>
           <textarea
             value={newValue}
-            onChange={(e) => setNewValue(e.target.value)}
+            onChange={(e) => {
+              console.debug('[Redis:AddKey] newValue onChange', e.target.value.slice(0, 100))
+              setNewValue(e.target.value)
+            }}
+            onFocus={() => console.debug('[Redis:AddKey] newValue onFocus')}
+            onKeyDown={(e) => console.debug('[Redis:AddKey] newValue onKeyDown', e.key)}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            tabIndex={0}
             placeholder={typeHint}
-            className="glass-input bg-bg-input px-2 py-2 text-[11px] text-text-primary min-h-[90px] font-mono outline-none resize-y"
+            className="glass-input bg-bg-input px-2 py-2 text-[11px] text-text-primary min-h-[90px] font-mono outline-none resize-y pointer-events-auto"
           />
           <div className="flex items-center gap-2 text-[10px] text-text-muted">
             <span>{typeHint}</span>

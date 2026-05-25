@@ -48,14 +48,24 @@ export interface RedisPageResult {
 }
 
 class RedisService {
-  private readonly cachedPasswords = new Map<string, string | undefined>()
+  private readonly cachedPasswords = new Map<string, { password?: string; expiresAt: number }>()
+  private readonly passwordCacheTtlMs = RedisService.parsePositiveInt(process.env.REDIS_PASSWORD_CACHE_TTL_MS, 5 * 60 * 1000)
+  private readonly cacheSweepIntervalMs = RedisService.parsePositiveInt(process.env.REDIS_PASSWORD_CACHE_SWEEP_MS, 60 * 1000)
+  private readonly cacheSweepTimer: NodeJS.Timeout
+  private readonly execTimeoutMs = Number(process.env.REDIS_EXEC_TIMEOUT_MS ?? 15000)
+
+  constructor() {
+    this.cacheSweepTimer = setInterval(() => {
+      this.sweepExpiredPasswordCache()
+    }, this.cacheSweepIntervalMs)
+  }
 
   /**
    * Execute a pre-tokenized command only; raw command strings are blocked at IPC layer.
    */
-  async execute(containerId: string, command: string, db = 0, password?: string): Promise<RedisExecResult> {
+  async execute(containerId: string, command: string | string[], db = 0, password?: string): Promise<RedisExecResult> {
     const start = Date.now()
-    const tokens = command.split(/\s+/).filter(Boolean)
+    const tokens = Array.isArray(command) ? [...command] : this.parseCommandString(command)
     const [op] = tokens
     const safeAllowList = new Set(['PING', 'INFO', 'GET', 'SET', 'TTL', 'TYPE', 'SCAN'])
     if (!op || !safeAllowList.has(op.toUpperCase())) {
@@ -133,9 +143,18 @@ class RedisService {
       String(safeCount)
     )
 
-    const lines = stdout.trim().split('\n')
-    const newCursor = lines[0] || '0'
-    const keyNames = lines.slice(1).filter((k) => k.trim())
+    const lines = stdout.replace(/\r/g, '').split('\n')
+    const firstLine = (lines[0] ?? '').trim()
+
+    if (!firstLine) {
+      throw new Error('Unexpected empty response from Redis SCAN')
+    }
+    if (firstLine.startsWith('(error)')) {
+      throw new Error(firstLine.replace(/^\(error\)\s*/, ''))
+    }
+
+    const newCursor = firstLine
+    const keyNames = lines.slice(1).filter((k) => k.length > 0)
 
     // Batch fetch TYPE/TTL in one redis-cli call using Lua to avoid per-key docker exec overhead.
     const keys: Array<{ key: string; type: string; ttl: number }> = []
@@ -429,6 +448,13 @@ class RedisService {
       for (let i = 1; i < lines.length - 1; i += 2) {
         pairs.push({ field: lines[i], value: lines[i + 1] ?? '' })
       }
+      if (pairs.length === 0 && total > 0 && cursor === '0') {
+        const fallback = await this.execRedis(containerId, db, password, 'HGETALL', key)
+        const fallbackLines = fallback.trim() ? fallback.trim().split('\n') : []
+        for (let i = 0; i < fallbackLines.length - 1; i += 2) {
+          pairs.push({ field: fallbackLines[i], value: fallbackLines[i + 1] ?? '' })
+        }
+      }
       return {
         type,
         cursor: nextCursor,
@@ -447,13 +473,18 @@ class RedisService {
       const total = parseInt(lenOut.trim(), 10) || 0
       const lines = pageOut.trim() ? pageOut.trim().split('\n') : []
       const nextCursor = lines[0] || '0'
+      let items = lines.slice(1).filter((x) => x.trim().length > 0)
+      if (items.length === 0 && total > 0 && cursor === '0') {
+        const fallback = await this.execRedis(containerId, db, password, 'SMEMBERS', key)
+        items = fallback.trim() ? fallback.trim().split('\n').filter((x) => x.trim().length > 0) : []
+      }
       return {
         type,
         cursor: nextCursor,
         pageStart: 0,
         pageSize: safeLimit,
         totalApprox: total,
-        items: lines.slice(1).filter((x) => x.trim().length > 0),
+        items,
       }
     }
 
@@ -466,8 +497,18 @@ class RedisService {
       const lines = pageOut.trim() ? pageOut.trim().split('\n') : []
       const nextCursor = lines[0] || '0'
       const items: Array<{ member: string; score: string }> = []
-      for (let i = 1; i < lines.length - 1; i += 2) {
-        items.push({ member: lines[i], score: lines[i + 1] ?? '0' })
+      for (let i = 1; i + 1 < lines.length; i += 2) {
+        items.push({ member: lines[i], score: lines[i + 1] })
+      }
+      if ((lines.length - 1) % 2 !== 0) {
+        throw new Error('Malformed ZSCAN response: unpaired member/score in output')
+      }
+      if (items.length === 0 && total > 0 && cursor === '0') {
+        const fallback = await this.execRedis(containerId, db, password, 'ZRANGE', key, '0', '-1', 'WITHSCORES')
+        const fallbackLines = fallback.trim() ? fallback.trim().split('\n') : []
+        for (let i = 0; i + 1 < fallbackLines.length; i += 2) {
+          items.push({ member: fallbackLines[i], score: fallbackLines[i + 1] })
+        }
       }
       return {
         type,
@@ -541,6 +582,74 @@ class RedisService {
     return Number.isFinite(parsed) ? parsed : null
   }
 
+  private parseCommandString(command: string): string[] {
+    const tokens: string[] = []
+    let current = ''
+    let quote: 'single' | 'double' | null = null
+    let escaped = false
+
+    for (let i = 0; i < command.length; i++) {
+      const ch = command[i]
+      if (escaped) {
+        current += ch
+        escaped = false
+        continue
+      }
+
+      if (ch === '\\') {
+        escaped = true
+        continue
+      }
+
+      if (quote === 'single') {
+        if (ch === "'") {
+          quote = null
+        } else {
+          current += ch
+        }
+        continue
+      }
+
+      if (quote === 'double') {
+        if (ch === '"') {
+          quote = null
+        } else {
+          current += ch
+        }
+        continue
+      }
+
+      if (ch === "'") {
+        quote = 'single'
+        continue
+      }
+
+      if (ch === '"') {
+        quote = 'double'
+        continue
+      }
+
+      if (/\s/.test(ch)) {
+        if (current) {
+          tokens.push(current)
+          current = ''
+        }
+        continue
+      }
+
+      current += ch
+    }
+
+    if (quote) {
+      throw new Error('Invalid command: unmatched quote')
+    }
+    if (escaped) {
+      throw new Error('Invalid command: trailing escape')
+    }
+    if (current) tokens.push(current)
+    return tokens
+  }
+
   private async execRedis(containerId: string, db: number, password: string | undefined, ...args: string[]): Promise<string> {
     const resolvedPassword = await this.resolveRedisPassword(containerId, password)
     const cmd = this.buildRedisCommand(db, resolvedPassword, args)
@@ -558,8 +667,12 @@ class RedisService {
 
   private async resolveRedisPassword(containerId: string, provided?: string): Promise<string | undefined> {
     if (provided) return provided
-    if (this.cachedPasswords.has(containerId)) {
-      return this.cachedPasswords.get(containerId)
+    const cached = this.cachedPasswords.get(containerId)
+    if (cached) {
+      if (cached.expiresAt > Date.now()) {
+        return cached.password
+      }
+      this.cachedPasswords.delete(containerId)
     }
 
     const fromConnection = storageService
@@ -567,7 +680,7 @@ class RedisService {
       .find((c) => c.type === 'redis' && !!c.password && !!c.docker_container_id && this.matchesContainerId(c.docker_container_id, containerId))
 
     if (fromConnection?.password) {
-      this.cachedPasswords.set(containerId, fromConnection.password)
+      this.setCachedPassword(containerId, fromConnection.password)
       return fromConnection.password
     }
 
@@ -575,8 +688,45 @@ class RedisService {
     const inspect = await verifiedContainer.inspect()
     const env = inspect.Config?.Env ?? []
     const envPassword = env.find((line) => line.startsWith('REDIS_PASSWORD='))?.slice('REDIS_PASSWORD='.length)
-    this.cachedPasswords.set(containerId, envPassword)
+    this.setCachedPassword(containerId, envPassword)
     return envPassword
+  }
+
+  invalidateCachedPassword(containerIdPrefix: string): void {
+    const normalizedPrefix = containerIdPrefix.toLowerCase()
+    for (const key of this.cachedPasswords.keys()) {
+      const normalizedKey = key.toLowerCase()
+      if (normalizedKey.startsWith(normalizedPrefix) || normalizedPrefix.startsWith(normalizedKey)) {
+        this.cachedPasswords.delete(key)
+      }
+    }
+  }
+
+  clearCachedPasswords(): void {
+    this.cachedPasswords.clear()
+  }
+
+  private setCachedPassword(containerId: string, password?: string): void {
+    this.cachedPasswords.set(containerId, {
+      password,
+      expiresAt: Date.now() + this.passwordCacheTtlMs,
+    })
+  }
+
+  private sweepExpiredPasswordCache(): void {
+    const now = Date.now()
+    for (const [key, entry] of this.cachedPasswords.entries()) {
+      if (entry.expiresAt <= now) {
+        this.cachedPasswords.delete(key)
+      }
+    }
+  }
+
+  private static parsePositiveInt(value: string | number | undefined, fallback: number): number {
+    if (value == null) return fallback
+    const parsed = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback
+    return Math.floor(parsed)
   }
 
   private matchesContainerId(savedId: string, requestedId: string): boolean {
@@ -624,6 +774,27 @@ class RedisService {
 
         let stdout = ''
         let stderr = ''
+        let settled = false
+
+        const timeoutHandle = setTimeout(() => {
+          if (settled) return
+          settled = true
+          stream.removeAllListeners('end')
+          stream.removeAllListeners('error')
+          try {
+            stream.destroy(new Error('Redis exec timed out'))
+          } catch {
+            // Ignore stream teardown failures.
+          }
+          reject(new Error(`Redis command timed out after ${this.execTimeoutMs}ms`))
+        }, this.execTimeoutMs)
+
+        const finish = (fn: () => void) => {
+          if (settled) return
+          settled = true
+          clearTimeout(timeoutHandle)
+          fn()
+        }
 
         ;(docker.modem as unknown as {
           demuxStream: (
@@ -638,14 +809,18 @@ class RedisService {
         )
 
         stream.on('end', () => {
-          if (stderr.trim() && !stdout.trim()) {
-            reject(new Error(stderr.trim()))
-            return
-          }
-          resolve(stdout)
+          finish(() => {
+            if (stderr.trim() && !stdout.trim()) {
+              reject(new Error(stderr.trim()))
+              return
+            }
+            resolve(stdout)
+          })
         })
 
-        stream.on('error', reject)
+        stream.on('error', (streamErr) => {
+          finish(() => reject(streamErr))
+        })
       })
     })
   }

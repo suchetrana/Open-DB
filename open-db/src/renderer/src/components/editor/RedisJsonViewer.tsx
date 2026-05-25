@@ -14,7 +14,6 @@ function isObject(value: JsonValue): value is { [key: string]: JsonValue } {
 }
 
 function stringifyInline(value: JsonValue): string {
-  if (typeof value === "string") return `"${value}"`;
   return JSON.stringify(value);
 }
 

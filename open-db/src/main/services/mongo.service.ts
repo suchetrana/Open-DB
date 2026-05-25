@@ -5,6 +5,7 @@
 import Docker from 'dockerode'
 
 const docker = new Docker()
+const CONTAINER_ID_PATTERN = /^[a-f0-9]{12,64}$/i
 
 export interface MongoResult {
   documents: Record<string, unknown>[]
@@ -57,12 +58,13 @@ class MongoService {
   }
 
   async getCollections(containerId: string, database = 'test'): Promise<Array<{ name: string; count: number }>> {
+    const validatedDatabase = this.validateIdentifier(database, 'database')
     const stdout = await this.execInContainer(containerId, [
       'mongosh',
       '--quiet',
       '--norc',
       '--eval',
-      `use ${database}; EJSON.stringify(db.getCollectionNames().map(n => ({name: n, count: db.getCollection(n).estimatedDocumentCount()})))`
+      `const _db = db.getSiblingDB(${JSON.stringify(validatedDatabase)}); EJSON.stringify(_db.getCollectionNames().map(n => ({name: n, count: _db.getCollection(n).estimatedDocumentCount()})))`
     ])
 
     try {
@@ -76,12 +78,14 @@ class MongoService {
   }
 
   async getFields(containerId: string, collection: string, database = 'test'): Promise<Array<{ name: string; type: string }>> {
+    const validatedDatabase = this.validateIdentifier(database, 'database')
+    const validatedCollection = this.validateIdentifier(collection, 'collection')
     const stdout = await this.execInContainer(containerId, [
       'mongosh',
       '--quiet',
       '--norc',
       '--eval',
-      `use ${database}; const docs = db.${collection}.find({}).limit(10).toArray(); const keys = {}; docs.forEach(d => Object.entries(d).forEach(([k, v]) => { if (!keys[k]) keys[k] = new Set(); keys[k].add(v === null ? 'null' : typeof v) })); EJSON.stringify(Object.entries(keys).map(([name, types]) => ({name, type: [...types].join(' | ')})))`
+      `const _db = db.getSiblingDB(${JSON.stringify(validatedDatabase)}); const _coll = _db.getCollection(${JSON.stringify(validatedCollection)}); const docs = _coll.find({}).limit(10).toArray(); const keys = {}; docs.forEach(d => Object.entries(d).forEach(([k, v]) => { if (!keys[k]) keys[k] = new Set(); keys[k].add(v === null ? 'null' : typeof v) })); EJSON.stringify(Object.entries(keys).map(([name, types]) => ({name, type: [...types].join(' | ')})))`
     ])
 
     try {
@@ -141,58 +145,53 @@ class MongoService {
       } = parsed
 
       if (!collection) throw new Error('Query must have "collection" field')
+      const validatedCollection = this.validateIdentifier(collection, 'collection')
+      const validatedDatabase = parsed.database
+        ? this.validateIdentifier(parsed.database, 'database')
+        : null
 
-      const dbPrefix = parsed.database ? `use ${parsed.database}; ` : ''
-      const f = JSON.stringify(filter)
+      const dbExpr = validatedDatabase
+        ? `db.getSiblingDB(${JSON.stringify(validatedDatabase)})`
+        : 'db'
+      const collExpr = `${dbExpr}.getCollection(${JSON.stringify(validatedCollection)})`
+      const filterExpr = `EJSON.deserialize(${JSON.stringify(filter)})`
+      const projectionExpr = projection ? `EJSON.deserialize(${JSON.stringify(projection)})` : null
+      const sortExpr = sort ? `EJSON.deserialize(${JSON.stringify(sort)})` : null
+      const pipelineExpr = `EJSON.deserialize(${JSON.stringify(pipeline ?? [])})`
+      const updateExpr = `EJSON.deserialize(${JSON.stringify(update ?? {})})`
+      const docExpr = `EJSON.deserialize(${JSON.stringify(doc ?? {})})`
 
       switch (op) {
         case 'find': {
-          const proj = projection ? `, ${JSON.stringify(projection)}` : ''
+          const proj = projectionExpr ? `, ${projectionExpr}` : ''
           const lim = `.limit(${Math.min(limit, 500)})`
-          const srt = sort ? `.sort(${JSON.stringify(sort)})` : ''
-          return `${dbPrefix}EJSON.stringify(db.${collection}.find(${f}${proj})${srt}${lim}.toArray())`
+          const srt = sortExpr ? `.sort(${sortExpr})` : ''
+          return `EJSON.stringify(${collExpr}.find(${filterExpr}${proj})${srt}${lim}.toArray())`
         }
         case 'findOne':
-          return `${dbPrefix}EJSON.stringify([db.${collection}.findOne(${f})])`
+          return `EJSON.stringify([${collExpr}.findOne(${filterExpr})])`
         case 'countDocuments':
-          return `${dbPrefix}EJSON.stringify([{count: db.${collection}.countDocuments(${f})}])`
-        case 'aggregate': {
-          const pipe = JSON.stringify(pipeline ?? [])
-          return `${dbPrefix}EJSON.stringify(db.${collection}.aggregate(${pipe}).toArray())`
-        }
+          return `EJSON.stringify([{count: ${collExpr}.countDocuments(${filterExpr})}])`
+        case 'aggregate':
+          return `EJSON.stringify(${collExpr}.aggregate(${pipelineExpr}).toArray())`
         case 'insertOne':
-          return `${dbPrefix}EJSON.stringify([db.${collection}.insertOne(${JSON.stringify(doc ?? {})})])`
+          return `EJSON.stringify([${collExpr}.insertOne(${docExpr})])`
         case 'updateOne':
-        case 'updateMany': {
-          const upd = JSON.stringify(update ?? {})
-          return `${dbPrefix}EJSON.stringify([db.${collection}.${op}(${f}, ${upd})])`
-        }
+        case 'updateMany':
+          return `EJSON.stringify([${collExpr}.${op}(${filterExpr}, ${updateExpr})])`
         case 'deleteOne':
         case 'deleteMany':
-          return `${dbPrefix}EJSON.stringify([db.${collection}.${op}(${f})])`
+          return `EJSON.stringify([${collExpr}.${op}(${filterExpr})])`
         default:
           throw new Error(`Unknown op: ${op}`)
       }
     }
 
-    if (trimmed.startsWith('db.')) {
-      if (trimmed.includes('EJSON.stringify')) return trimmed
-
-      if (/\.(find|aggregate)\s*\(/.test(trimmed)) {
-        const withToArray = trimmed
-          .replace(/\)\s*$/, '.toArray())')
-          .replace(/\.toArray\(\)\.toArray\(\)/, '.toArray()')
-        return `EJSON.stringify(${withToArray})`
-      }
-
-      return `EJSON.stringify([${trimmed}])`
-    }
-
-    return trimmed
+    throw new Error('Only structured JSON Mongo queries are supported in GUI mode')
   }
 
   private async execInContainer(containerId: string, cmd: string[]): Promise<string> {
-    const container = docker.getContainer(containerId)
+    const container = await this.getVerifiedMongoContainer(containerId)
     const exec = await container.exec({
       Cmd: cmd,
       AttachStdout: true,
@@ -233,6 +232,40 @@ class MongoService {
         stream.on('error', reject)
       })
     })
+  }
+
+  private validateIdentifier(name: string, type: 'database' | 'collection'): string {
+    const trimmed = name.trim()
+    if (!trimmed) throw new Error(`Mongo ${type} name is required`)
+    if (/[\0/\\"$]/.test(trimmed)) {
+      throw new Error(`Invalid Mongo ${type} name: forbidden characters detected`)
+    }
+    if (!/^[A-Za-z_][A-Za-z0-9_.-]*$/.test(trimmed)) {
+      throw new Error(`Invalid Mongo ${type} name: only letters, numbers, underscore, dot, and hyphen are allowed`)
+    }
+    return trimmed
+  }
+
+  private async getVerifiedMongoContainer(containerId: string): Promise<Docker.Container> {
+    if (!CONTAINER_ID_PATTERN.test(containerId)) {
+      throw new Error('Invalid container id')
+    }
+
+    const containers = await docker.listContainers({ all: true })
+    const match = containers.find((c) => c.Id.startsWith(containerId) || containerId.startsWith(c.Id.slice(0, 12)))
+    if (!match) {
+      throw new Error('Container not found')
+    }
+
+    const image = (match.Image ?? '').toLowerCase()
+    if (!image.includes('mongo')) {
+      throw new Error('Container is not a MongoDB container')
+    }
+    if (match.State !== 'running') {
+      throw new Error('MongoDB container is not running')
+    }
+
+    return docker.getContainer(match.Id)
   }
 
   private parseOutput(stdout: string): Record<string, unknown>[] {

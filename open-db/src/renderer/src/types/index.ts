@@ -54,7 +54,7 @@ export interface ColumnNode {
 export interface EditorTab {
   id: string;
   title: string;
-  type: "sql" | "config" | "table" | "structure" | "redis-browser" | "redis-key" | "redis-cli";
+  type: "sql" | "config" | "table" | "structure" | "redis-browser" | "redis-key" | "redis-cli" | "mongo-collection";
   icon: string;
   iconColor: string;
   isActive: boolean;
@@ -68,6 +68,9 @@ export interface EditorTab {
   _redisKey?: string;
   _redisDb?: number;
   _containerId?: string;
+  /** For Mongo collection tabs */
+  _mongoDb?: string;
+  _mongoCollection?: string;
 }
 
 // ── Table Structure (Beekeeper-style) ──

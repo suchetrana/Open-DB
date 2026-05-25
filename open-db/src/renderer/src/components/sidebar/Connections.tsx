@@ -27,13 +27,20 @@ function AddConnectionForm({ onClose }: { onClose: () => void }) {
     setError("");
     setTesting(true);
 
+    const parsedPort = parseInt(port, 10);
+    if (Number.isNaN(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+      setError("Invalid port number");
+      setTesting(false);
+      return;
+    }
+
     const connName = name.trim() || `${host}:${port}/${database}`;
     const conn: Connection = {
       id: genId(),
       name: connName,
       type: dbType,
       host,
-      port: parseInt(port, 10),
+      port: parsedPort,
       username: user,
       database,
       isConnected: false,
@@ -44,7 +51,7 @@ function AddConnectionForm({ onClose }: { onClose: () => void }) {
       const ok = await window.electronAPI.database.testConnection(
         dbType,
         host,
-        parseInt(port, 10),
+        parsedPort,
         user,
         password,
         database
@@ -130,6 +137,21 @@ export function Connections() {
     }
   };
 
+  const openRedisConnectionTab = (conn: Connection) => {
+    const safeName = conn.name.replace(/\s+/g, "-").toLowerCase();
+    const title = `${safeName || "redis"}.redis.txt`;
+    const content = [
+      `Redis connection: ${conn.name}`,
+      `Host: ${conn.host}`,
+      `Port: ${conn.port}`,
+      `Database: ${conn.database ?? "0"}`,
+      "",
+      "This connection is not linked to a Docker container.",
+      "Redis browser tabs currently require a dockerContainerId.",
+    ].join("\n");
+    addNewFileTab(title, content);
+  };
+
   const connectWithPassword = async (conn: Connection, password: string) => {
     setReconnectError("");
     setReconnectingId(conn.id);
@@ -141,6 +163,8 @@ export function Connections() {
       setPasswordDraft("");
       if (conn.type === 'redis' && conn.dockerContainerId) {
         openRedisBrowserTab(conn.dockerContainerId, 0);
+      } else if (conn.type === 'redis') {
+        openRedisConnectionTab(conn);
       } else {
         ensureQueryTabReady();
       }

@@ -80,6 +80,15 @@ export function StatusBar() {
   // Ctrl+Plus / Ctrl+Minus / Ctrl+0 keyboard shortcuts for zoom
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isEditable =
+        !!target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
+      if (isEditable) return;
+
       if ((!e.ctrlKey && !e.metaKey) || e.altKey) return;
 
       const key = e.key;
